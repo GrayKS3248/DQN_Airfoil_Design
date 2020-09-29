@@ -47,8 +47,9 @@ class Vortex_Panel_Solver():
     # @param pj - jth panel point written in 3D coords np.array([[x],[y],[z]])
     # @param pjp1 - j+1th panel point written in 3D coords np.array([[x],[y],[z]])
     # @param cp - control point written in 3D coords np.array([[x],[y],[z]])
-    # @return integral in form v_induced', where v_induced' := v_induced = v_induced' * [gamma_j; gamma_{j+1}]
-    def solve_integral(self, pj, pjp1, cp):
+    # @param cp_normal - the normal vector of the control point in form np.array([[nx],[ny],[0]])
+    # @return integral in form vn_prime_j, vn_prime_jp1,
+    def solve_integral(self, pj, pjp1, cp, cp_normal):
         # Panel parameters
         panel_length = np.linalg.norm(pjp1 - pj)
         
@@ -57,7 +58,7 @@ class Vortex_Panel_Solver():
         s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
                       np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
                       np.linspace(0,0,precision)])
-        s_norm = np.linalg.norm(s,axis=0).reshape(1,precision)
+        s_norm = np.linspace(0,panel_length,precision).reshape(precision)
         
         # Calculate the radius to control point and its square norm
         r = cp - s
@@ -65,19 +66,27 @@ class Vortex_Panel_Solver():
         
         # Setup integrals
         den = 2 * np.pi * r_norm_sq
-        num1 = (1 - s_norm / panel_length)
-        num2 = (s_norm / panel_length)
-        r0 = -1.0*r[0].reshape(1,precision)
-        r1 = r[1].reshape(1,precision)
+        num_j = np.linspace(1,0,precision)
+        num_jp1 = np.linspace(0,1,precision)
+        _rx = -1.0 * r[0].reshape(1,precision)
+        ry = r[1].reshape(1,precision)
         
         # solve integrals
-        vx_prime_0 = np.trapz(np.multiply(r1, num1) / den, x=s_norm).item()
-        vx_prime_1 = np.trapz(np.multiply(r1, num2) / den, x=s_norm).item()
-        vy_prime_0 = np.trapz(np.multiply(r0, num1) / den, x=s_norm).item()
-        vy_prime_1 = np.trapz(np.multiply(r0, num2) / den, x=s_norm).item()
+        vx_prime_j = np.trapz(ry * num_j / den, x=s_norm).item()
+        vx_prime_jp1 = np.trapz(ry * num_jp1 / den, x=s_norm).item()
+        vy_prime_j = np.trapz(_rx * num_j / den, x=s_norm).item()
+        vy_prime_jp1 = np.trapz(_rx * num_jp1 / den, x=s_norm).item()
 
+        #format normal vector
+        nx = cp_normal[0][0]
+        ny = cp_normal[1][0]
+        
+        # Format outpout
+        vn_prime_j = nx * vx_prime_j + ny * vy_prime_j
+        vn_prime_jp1 = nx * vx_prime_jp1 + ny * vy_prime_jp1
+        
         # Combine results
-        return np.array([[vx_prime_0],[vy_prime_0], [0.0]]), np.array([[vx_prime_1],[vy_prime_1], [0.0]])
+        return vn_prime_j, vn_prime_jp1
     
     #Solves for the A matrix
     # @return the A matrix
@@ -138,12 +147,80 @@ class Vortex_Panel_Solver():
         B = self.get_B(V_inf)
         return np.linalg.solve(A,B)
     
+    #
+    # @param pj - jth panel point written in 3D coords np.array([[x],[y],[z]])
+    # @param pjp1 - j+1th panel point written in 3D coords np.array([[x],[y],[z]])
+    # @param cp - control point written in 3D coords np.array([[x],[y],[z]])
+    # @param gamma_j - the circulation at point pj
+    # @param gamma_jp1 - the circulation at point pjp1
+    # @return velocity at cp in form v_induced
+    def solve_velocity(self, pj, pjp1, cp, gamma_j, gamma_jp1):
+        # Panel parameters
+        panel_length = np.linalg.norm(pjp1 - pj)
+        
+        # Parameters used for integration
+        precision = 100
+        s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
+                      np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
+                      np.linspace(0,0,precision)])
+        s_norm = np.linspace(0,panel_length,precision).reshape(precision)
+        
+        # Calculate the radius to control point and its square norm
+        r = cp - s
+        r_norm_sq = np.einsum('ij,ij->j', r, r).reshape(1,precision)
+        
+        # Setup integrals
+        den = 2 * np.pi * r_norm_sq
+        numj = np.linspace(1,0,precision)
+        numjp1 = np.linspace(0,1,precision)
+        mrx = -1.0*r[0].reshape(1,precision)
+        ry = r[1].reshape(1,precision)
+        
+        # solve integrals
+        vx_prime_0 = np.trapz(np.multiply(ry, numj) / den, x=s_norm).item()
+        vx_prime_1 = np.trapz(np.multiply(ry, numj) / den, x=s_norm).item()
+        vy_prime_0 = np.trapz(np.multiply(mrx, numjp1) / den, x=s_norm).item()
+        vy_prime_1 = np.trapz(np.multiply(mrx, numjp1) / den, x=s_norm).item()
+
+        # Solve for velocity
+        vx = vx_prime_0 * gamma_j + vx_prime_1 * gamma_jp1
+        vy = vy_prime_0 * gamma_j + vy_prime_1 * gamma_jp1
+        vz = 0.0
+
+        # Combine results
+        return np.array([vx, vy, vz])
+    
     # Gets the velocity induced by the freestream and the vortex panels at each control point
-    # @param
+    # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
     # @return
     def solve_cp(self, V_inf):
         gamma = self.solve_gamma(V_inf)
         
+        # Init the induced velocity vector
+        v_induced = np.zeros((2 * self.n_panels_per_surface, 3))
+        
+        # Step through all panels
+        for curr_control_point in range(2 * self.n_panels_per_surface):
+            
+            # Get the control point on the current panel (spatial average of boudning points)
+            control_point_x = (self.surface_x[0][curr_control_point] + self.surface_x[0][curr_control_point+1])/2
+            control_point_y = (self.surface_y[0][curr_control_point] + self.surface_y[0][curr_control_point+1])/2
+            control_point = np.array([[control_point_x],[control_point_y],[0.0]])
+            
+            # Step through all inducing panels
+            for curr_inducing_panel in range(2 * self.n_panels_per_surface):
+                
+                # Get the bounding points of the inducing panel
+                pj = np.array([[self.surface_x[0][curr_inducing_panel]], [self.surface_y[0][curr_inducing_panel]], [0.0]])
+                pjp1 = np.array([[self.surface_x[0][curr_inducing_panel+1]], [self.surface_y[0][curr_inducing_panel+1]], [0.0]])
+                gamma_j = gamma[curr_inducing_panel][0]
+                gamma_jp1 = gamma[curr_inducing_panel + 1][0]
+                
+                # Solve the integral
+                v_induced[curr_control_point] += self.solve_velocity(pj, pjp1, control_point, gamma_j, gamma_jp1)
+        
+        # Calculate tanjential velocity at every control point
+        v = v_induced[:] + V_inf.reshape(3)
     
     #
     def reset(self):
