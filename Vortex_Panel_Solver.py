@@ -149,7 +149,7 @@ class Vortex_Panel_Solver():
         B = self.get_B(v_inf)
         return np.linalg.solve(A, -1.0 * B)
     
-    #
+    # Solves for the local tangential velcoity induced by panel j at control point cp
     # @param pj - jth panel point written in 3D coords np.array([[x],[y],[z]])
     # @param pjp1 - j+1th panel point written in 3D coords np.array([[x],[y],[z]])
     # @param cp - control point written in 3D coords np.array([[x],[y],[z]])
