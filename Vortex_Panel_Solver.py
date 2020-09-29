@@ -5,6 +5,7 @@ Created on Mon Sep 28 14:23:01 2020
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Vortex_Panel_Solver():
     def __init__(self, max_num_steps, n_panels_per_surface):
@@ -13,6 +14,7 @@ class Vortex_Panel_Solver():
         self.n_panels_per_surface = n_panels_per_surface
         self.num_actions = 10
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
+        self.precision = 10
         
         # Create upper surface
         upper_surface_x = np.linspace(1,0,n_panels_per_surface+1).reshape(1, n_panels_per_surface+1)
@@ -54,22 +56,21 @@ class Vortex_Panel_Solver():
         panel_length = np.linalg.norm(pjp1 - pj)
         
         # Parameters used for integration
-        precision = 25
-        s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
-                      np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
-                      np.linspace(0,0,precision)])
-        s_norm = np.linspace(0,panel_length,precision).reshape(precision)
+        s = np.array([np.linspace(pj[0],pjp1[0],self.precision).reshape(self.precision), 
+                      np.linspace(pj[1],pjp1[1],self.precision).reshape(self.precision), 
+                      np.linspace(0,0,self.precision)])
+        s_norm = np.linspace(0,panel_length,self.precision).reshape(self.precision)
         
         # Calculate the radius to control point and its square norm
         r = cp - s
-        r_norm_sq = np.einsum('ij,ij->j', r, r).reshape(1,precision)
+        r_norm_sq = np.einsum('ij,ij->j', r, r).reshape(1,self.precision)
         
         # Setup integrals
         den = 2 * np.pi * r_norm_sq
-        num_j = np.linspace(1,0,precision)
-        num_jp1 = np.linspace(0,1,precision)
-        _rx = -1.0 * r[0].reshape(1,precision)
-        ry = r[1].reshape(1,precision)
+        num_j = np.linspace(1,0,self.precision)
+        num_jp1 = np.linspace(0,1,self.precision)
+        _rx = -1.0 * r[0].reshape(1,self.precision)
+        ry = r[1].reshape(1,self.precision)
         
         # solve integrals
         vx_prime_j = np.trapz(ry * num_j / den, x=s_norm).item()
@@ -130,10 +131,10 @@ class Vortex_Panel_Solver():
     # Solves for the B matrix 
     # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
     # @return B matrix
-    def get_B(self, V_inf):
+    def get_B(self, v_inf):
         
         # init and populate B
-        B = np.matmul(V_inf.reshape(1,3), self.surface_normal).reshape(2 * self.n_panels_per_surface,1)
+        B = np.matmul(v_inf.reshape(1,3), self.surface_normal).reshape(2 * self.n_panels_per_surface,1)
         
         # Kutta condition
         B = np.append(B, 0.0).reshape(2 * self.n_panels_per_surface + 1, 1)
@@ -143,9 +144,9 @@ class Vortex_Panel_Solver():
     # Solves for the circulation strength at each panel vertex
     # @param V_inf - the free stream velocity
     # @return the circulation strength at each panel vertex
-    def solve_gamma(self, V_inf):
+    def solve_gamma(self, v_inf):
         A = self.get_A()
-        B = self.get_B(V_inf)
+        B = self.get_B(v_inf)
         return np.linalg.solve(A, -1.0 * B)
     
     #
@@ -160,22 +161,21 @@ class Vortex_Panel_Solver():
         panel_length = np.linalg.norm(pjp1 - pj)
         
         # Parameters used for integration
-        precision = 25
-        s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
-                      np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
-                      np.linspace(0,0,precision)])
-        s_norm = np.linspace(0,panel_length,precision).reshape(precision)
+        s = np.array([np.linspace(pj[0],pjp1[0],self.precision).reshape(self.precision), 
+                      np.linspace(pj[1],pjp1[1],self.precision).reshape(self.precision), 
+                      np.linspace(0,0,self.precision)])
+        s_norm = np.linspace(0,panel_length,self.precision).reshape(self.precision)
         
         # Calculate the radius to control point and its square norm
         r = cp - s
-        r_norm_sq = np.einsum('ij,ij->j', r, r).reshape(1,precision)
+        r_norm_sq = np.einsum('ij,ij->j', r, r).reshape(1,self.precision)
         
         # Setup integrals
         den = 2 * np.pi * r_norm_sq
-        num_j = np.linspace(1,0,precision)
-        num_jp1 = np.linspace(0,1,precision)
-        _rx = -1.0 * r[0].reshape(1,precision)
-        ry = r[1].reshape(1,precision)
+        num_j = np.linspace(1,0,self.precision)
+        num_jp1 = np.linspace(0,1,self.precision)
+        _rx = -1.0 * r[0].reshape(1,self.precision)
+        ry = r[1].reshape(1,self.precision)
         
         # solve integrals
         vx_prime_j = np.trapz(ry * num_j / den, x=s_norm).item()
@@ -194,8 +194,8 @@ class Vortex_Panel_Solver():
     # Gets the velocity induced by the freestream and the vortex panels at each control point
     # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
     # @return
-    def solve_cp(self, V_inf):
-        gamma = self.solve_gamma(V_inf)
+    def solve_cp(self, v_inf):
+        gamma = self.solve_gamma(v_inf)
         
         # Init the induced velocity vector
         v_induced = np.zeros((2 * self.n_panels_per_surface, 3))
@@ -221,8 +221,52 @@ class Vortex_Panel_Solver():
                 v_induced[curr_control_point] += self.solve_velocity(pj, pjp1, control_point, gamma_j, gamma_jp1)
         
         # Calculate tanjential velocity at every control point
-        v = v_induced[:] + V_inf.reshape(3)
+        v = v_induced[:] + v_inf.reshape(3)
+        v_mag = np.linalg.norm(v,axis=1).reshape(self.n_panels_per_surface * 2, 1)
     
+        # Bernoulli's equation to get Cp
+        v_inf_mag = np.linalg.norm(v_inf)
+        cp = 1 - ((v_mag ** 2) / (v_inf_mag ** 2))
+        return cp
+    
+    # Visualizes the pressure distribution over the airfoil
+    # @param cp - pressure distribution of airfoil
+    # @param n - number label of airfoil
+    def visualize_cp(self, cp, n):
+        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][:-1].reshape(2*self.n_panels_per_surface)
+        plt.clf
+        plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface))
+        plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface))
+        plt.gca().invert_yaxis()
+        title_str = "Cp for Airfoil " + str(n)
+        plt.title(title_str)
+        plt.xlabel("x/c [unitless]")
+        plt.ylabel("Cp [unitless]")
+        plt.xlim([0,1])
+        fig = plt.gcf()
+        fig.set_size_inches(10, 5)
+        save_str = "cp_airfoil_" + str(n) + ".png"
+        plt.savefig(save_str, dpi = 500)
+        plt.close()        
+    
+    # Visualizes the shape of the airfoil
+    # @param n - number label of airfoil
+    def visualize_airfoil(self, n):
+        plt.clf
+        plt.scatter(self.surface_x.reshape(2*self.n_panels_per_surface + 1), self.surface_y.reshape(2*self.n_panels_per_surface + 1))
+        plt.plot(self.surface_x.reshape(2*self.n_panels_per_surface + 1), self.surface_y.reshape(2*self.n_panels_per_surface + 1))
+        title_str = "Airfoil " + str(n)
+        plt.title(title_str)
+        plt.xlabel("x/c [unitless]")
+        plt.ylabel("y/c [unitless]")
+        plt.xlim([0,1])
+        plt.ylim([-1,1])
+        fig = plt.gcf()
+        fig.set_size_inches(10, 5)
+        save_str = "airfoil_" + str(n) + ".png"
+        plt.savefig(save_str, dpi = 500)
+        plt.close()
+        
     #
     def reset(self):
         print("Resetting Vortex_Panel_Solver...")
