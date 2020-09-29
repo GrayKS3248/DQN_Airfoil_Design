@@ -54,7 +54,7 @@ class Vortex_Panel_Solver():
         panel_length = np.linalg.norm(pjp1 - pj)
         
         # Parameters used for integration
-        precision = 10
+        precision = 25
         s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
                       np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
                       np.linspace(0,0,precision)])
@@ -98,12 +98,13 @@ class Vortex_Panel_Solver():
         # Step through all panels
         for curr_control_point in range(2 * self.n_panels_per_surface):
             
-            # Get the control point on the current panel (spatial average of boudning points)
+            # Get the control point on the current panel (spatial average of panel boudning points)
             control_point_x = (self.surface_x[0][curr_control_point] + self.surface_x[0][curr_control_point+1])/2
             control_point_y = (self.surface_y[0][curr_control_point] + self.surface_y[0][curr_control_point+1])/2
             control_point = np.array([[control_point_x],[control_point_y],[0.0]])
+            
             # Gather the normal vector
-            control_point_normal = self.surface_normal[:,curr_control_point].reshape(1,3)
+            control_point_normal = self.surface_normal[:,curr_control_point].reshape(3,1)
             
             # Step through all inducing panels
             for curr_inducing_panel in range(2 * self.n_panels_per_surface):
@@ -113,11 +114,11 @@ class Vortex_Panel_Solver():
                 pjp1 = np.array([[self.surface_x[0][curr_inducing_panel+1]], [self.surface_y[0][curr_inducing_panel+1]], [0.0]])
                 
                 # Solve the integral
-                v_induced_prime = self.solve_integral(pj, pjp1, control_point)
+                vn_prime_j, vn_prime_jp1 = self.solve_integral(pj, pjp1, control_point, control_point_normal)
                 
                 # Format and update A
-                A[curr_control_point][curr_inducing_panel] += np.matmul(control_point_normal, v_induced_prime[0]).item()
-                A[curr_control_point][curr_inducing_panel + 1] += np.matmul(control_point_normal, v_induced_prime[1]).item()
+                A[curr_control_point][curr_inducing_panel] += vn_prime_j
+                A[curr_control_point][curr_inducing_panel + 1] += vn_prime_jp1
                 
         # Apply the kutta condition
         A[2 * self.n_panels_per_surface][0] = 1.0
@@ -145,7 +146,7 @@ class Vortex_Panel_Solver():
     def solve_gamma(self, V_inf):
         A = self.get_A()
         B = self.get_B(V_inf)
-        return np.linalg.solve(A,B)
+        return np.linalg.solve(A, -1.0 * B)
     
     #
     # @param pj - jth panel point written in 3D coords np.array([[x],[y],[z]])
@@ -159,7 +160,7 @@ class Vortex_Panel_Solver():
         panel_length = np.linalg.norm(pjp1 - pj)
         
         # Parameters used for integration
-        precision = 100
+        precision = 25
         s = np.array([np.linspace(pj[0],pjp1[0],precision).reshape(precision), 
                       np.linspace(pj[1],pjp1[1],precision).reshape(precision), 
                       np.linspace(0,0,precision)])
@@ -171,20 +172,20 @@ class Vortex_Panel_Solver():
         
         # Setup integrals
         den = 2 * np.pi * r_norm_sq
-        numj = np.linspace(1,0,precision)
-        numjp1 = np.linspace(0,1,precision)
-        mrx = -1.0*r[0].reshape(1,precision)
+        num_j = np.linspace(1,0,precision)
+        num_jp1 = np.linspace(0,1,precision)
+        _rx = -1.0 * r[0].reshape(1,precision)
         ry = r[1].reshape(1,precision)
         
         # solve integrals
-        vx_prime_0 = np.trapz(np.multiply(ry, numj) / den, x=s_norm).item()
-        vx_prime_1 = np.trapz(np.multiply(ry, numj) / den, x=s_norm).item()
-        vy_prime_0 = np.trapz(np.multiply(mrx, numjp1) / den, x=s_norm).item()
-        vy_prime_1 = np.trapz(np.multiply(mrx, numjp1) / den, x=s_norm).item()
-
-        # Solve for velocity
-        vx = vx_prime_0 * gamma_j + vx_prime_1 * gamma_jp1
-        vy = vy_prime_0 * gamma_j + vy_prime_1 * gamma_jp1
+        vx_prime_j = np.trapz(ry * num_j / den, x=s_norm).item()
+        vx_prime_jp1 = np.trapz(ry * num_jp1 / den, x=s_norm).item()
+        vy_prime_j = np.trapz(_rx * num_j / den, x=s_norm).item()
+        vy_prime_jp1 = np.trapz(_rx * num_jp1 / den, x=s_norm).item()
+        
+        # Format outpout
+        vx = vx_prime_j * gamma_j + vx_prime_jp1 * gamma_jp1
+        vy = vy_prime_j * gamma_j + vy_prime_jp1 * gamma_jp1
         vz = 0.0
 
         # Combine results
