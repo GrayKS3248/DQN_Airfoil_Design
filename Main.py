@@ -60,9 +60,9 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    n_sets = 2
-    n_episodes = 10                         # Best = 505
-    n_steps = 100
+    n_sets = 1
+    n_episodes = 1
+    n_steps = 1010000
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -71,18 +71,18 @@ if __name__ == '__main__':
     state_dimension = env.state_dimension
     
     # Agent parameters
-    max_data_set_size = 50000                 # Best = 50000
-    start_data_set_size = 10                 # Best = 500
-    sequence_size = 1                         # Best = 1 (likely because we already have state derivative data)
-    minibatch_size = 32                       # Best = 32
-    num_hidden_layers = 2                     # Constrained = 2
-    num_neurons_in_layer = 64                 # Constrained = 64
-    clone_interval = 1000                     # Best = 1000
-    alpha = 0.0025                            # Best = 0.0025
-    gamma = 0.95                              # Constrained = 0.95
-    epsilon_start = 1.00                      # Best = 1.00
-    epsilon_end = 0.10                        # Best = 0.10
-    epsilon_depreciation_factor = 0.99977    # Best = 0.99977
+    max_data_set_size = 1000000
+    start_data_set_size = 10000           
+    sequence_size = 1                    
+    minibatch_size = 32                    
+    num_hidden_layers = 5                
+    num_neurons_in_layer = 64           
+    clone_interval = 10000               
+    alpha = 0.00025                       
+    gamma = 0.99                        
+    epsilon_start = 1.00            
+    epsilon_end = 0.10                      
+    epsilon_depreciation_factor = 0.9999767
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
@@ -101,6 +101,45 @@ if __name__ == '__main__':
     # plot results
     print("Plotting training and trajectory data...")
     start = time.time()
+  
+    # Calculate locations of cloning and terminal epsilon
+    last_data_point = len(agent.logbook['r_tot_discount_avg'])-1
+    num_times_cloned = int(float(last_data_point) // float(clone_interval))
+    cloning_points = np.linspace(clone_interval, last_data_point, num_times_cloned)
+    final_exploration_frame = math.log(epsilon_end) // math.log(epsilon_depreciation_factor)  
+  
+    # Plot reward curve    
+    plt.clf()
+    title_str = "DQN Reward Curve: \u03B1 = " + str(alpha) + ", \u03B3 = " + str(gamma) + ", \u03B5 = " + str(epsilon_start) + " → " + str(epsilon_end)
+    plt.title(title_str)
+    plt.plot([*range(len(agent.logbook['r_tot_avg']))], agent.logbook['r_tot_avg'], label="Total Reward")
+    for cloning_point in cloning_points:
+        if cloning_point in [clone_interval]:
+            plt.axvline(cloning_point, c='r', linestyle=':', linewidth=0.5, label="Clone")
+        else:
+            plt.axvline(cloning_point, c='r', linestyle=':', linewidth=0.5, label=None)
+    plt.axvline(final_exploration_frame, c='k', linestyle=':', linewidth=2, label="ε Stable")
+    plt.legend()
+    plt.xlabel('Simulation Step')
+    plt.ylabel('Total Reward')
+    plt.savefig('rwd_cur.png', dpi = 200)
+    
+    # plot loss curve
+    plt.clf()
+    title_str = "DQN Loss Curve: \u03B1 = " + str(alpha) + ", \u03B3 = " + str(gamma) + ", \u03B5 = " + str(epsilon_start) + " → " + str(epsilon_end)
+    plt.title(title_str)
+    plt.plot([*range(len(agent.logbook['loss_avg']))], agent.logbook['loss_avg'], label="Loss")
+    for cloning_point in cloning_points:
+        if cloning_point in [clone_interval]:
+            plt.axvline(cloning_point, c='r', linestyle=':', linewidth=0.5, label="Clone")
+        else:
+            plt.axvline(cloning_point, c='r', linestyle=':', linewidth=0.5, label=None)
+    plt.axvline(final_exploration_frame, c='k', linestyle=':', linewidth=2, label="ε Stable")
+    plt.legend()
+    plt.xlabel('Simulation Step')
+    plt.ylabel('Loss')
+    plt.savefig('los_cur.png', dpi = 200)
+    plt.close()
     
     elapsed = time.time() - start
     print("Plotting took:", f'{elapsed:.3f}', "seconds.")
