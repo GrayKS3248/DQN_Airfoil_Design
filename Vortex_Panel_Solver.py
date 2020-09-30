@@ -257,9 +257,21 @@ class Vortex_Panel_Solver():
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
         
+        # Solve for differential slopes
+        x_verts_upper = (self.surface_x[0][0:self.n_panels_per_surface+1])[::-1]
+        x_verts_lower = (self.surface_x[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        y_verts_upper = (self.surface_y[0][0:self.n_panels_per_surface+1])[::-1]
+        y_verts_lower = (self.surface_y[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        dy_upper = (np.roll(y_verts_upper,-1) - y_verts_upper)[:-1]
+        dy_lower = (np.roll(y_verts_lower,-1) - y_verts_lower)[:-1]
+        dx_upper = (np.roll(x_verts_upper,-1) - x_verts_upper)[:-1]
+        dx_lower = (np.roll(x_verts_lower,-1) - x_verts_lower)[:-1]
+        slope_upper = dy_upper / dx_upper
+        slope_lower = dy_lower / dx_lower
+        
         # Solve for cn
-        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
-        return cn    
+        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=x_coords)
+        return ca
     
     # Visualizes the pressure distribution over the airfoil
     # @param cp - pressure distribution of airfoil
