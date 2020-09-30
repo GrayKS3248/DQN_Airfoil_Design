@@ -3,7 +3,7 @@ Created on Mon Sep 28 14:23:01 2020
 
 @author: Grayson Schaer
 """
-
+from scipy.signal import find_peaks 
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,7 +13,6 @@ class Vortex_Panel_Solver():
         self.max_num_steps = max_num_steps
         self.curr_step = 0
         self.n_panels_per_surface = n_panels_per_surface
-        self.num_actions = 10
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
         self.precision = 30 # ***** MUST BE EVEN ***** #
         
@@ -366,26 +365,89 @@ class Vortex_Panel_Solver():
         plt.savefig(save_str, dpi = 500)
         plt.close()
      
-    #
-    # @param
-    # @param
-    # @param
+    # Performs the action on the airfoil and returns a reward
+    # @param action - action set in form np.array(2 * n_panels_per_surface,)
+    # @param v_inf_test_points - n freestream velocity magnitudes in form np.array([v0, v1, v2, v3, v4, ..., vn])
+    # @param alpha_test_points - n angles of attack in form np.array([a0, a1, a2, a3, a4, ..., an])
+    # @param cl_test_points - n lift coefficients in form np.array([cl0, ..., cln])
+    # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
+    # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
     # @return the next state, reward, and whether to terminate simulator
-    def step(self, action, v_inf_test_points, alpha_test_points):
+    def step(self, action, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points):
         
         # Determine if simulation is complete
         self.curr_step += 1
         done = (self.curr_step == self.max_num_steps)
         
-        # If the airfoil is too spikey, return a large negative reward
-        if ():
-            return -100, s2, done
+        # Get the initial state
+        s1 = self.surface_y
         
-        # If the action moves any points outside of the acceptable range, return a large negative reward
-        elif ():
-            return -100, s2, done
+        # Perform the action set on the state
+        temp = s1[0][:-1] * action
+        s2 = np.append(temp, temp[0][0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
+        
+        ####################################################### REWARD FUNCTION #######################################################
+        
+        # If the airfoil is too spikey, return a large negative reward and the original state
+        # Too spikey is defined as having more than a single peak per surface
+        y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
+        y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
+        n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
+        if (n_peaks_upper > 1 or n_peaks_lower > 1):
+            return -100.0, s1, done
+        
+        # If the action moves any points outside of the acceptable range, return a large negative reward and the original state
+        # The acceptable range is any y/c between [-1.0, 1.0]
+        # The acceptable range for the TE is y/c between [-0.10,0.10]
+        elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
+            return -100.0, s1, done
+        
+        # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the original state
+        elif (y_coords_upper < y_coords_lower)[1:].any():
+            return -100.0, s1, done
+        
+        # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
+        else:
+            cl_loss = 0.0
+            cdp_loss = 0.0
+            cm4c_loss = 0.0
             
-        return 0, s2, done
+            n_test_points = np.size(v_inf_test_points)
+            for test_point in range(n_test_points):
+                
+                # Get the current velocity vector
+                v_inf = np.array([[v_inf_test_points[test_point] * np.cos(alpha_test_points[test_point])], 
+                                  [v_inf_test_points[test_point] * np.sin(alpha_test_points[test_point])], 
+                                  [0.0]])
+                
+                # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
+                cl = self.solve_cl(v_inf)
+                cdp = self.solve_cdp(v_inf)
+                cm4c = self.solve_cm4c(v_inf)
+                
+                # Update the loss function
+                cl_loss += abs((cl - cl_test_points[test_point]) / cl_test_points[test_point])
+                cdp_loss += abs((cdp - cdp_test_points[test_point]) / cdp_test_points[test_point])
+                cm4c_loss += abs((cm4c - cm4c_test_points[test_point]) / cm4c_test_points[test_point])
+                
+            # Calculate the total weighted loss
+            # Adjust weights to get more tuned results
+            cl_loss = cl_loss / n_test_points
+            cdp_loss = cdp_loss / n_test_points
+            cm4c_loss = cm4c_loss / n_test_points
+            cl_loss_weight = 5.0
+            cdp_loss_weight = 2.0
+            cm4c_loss_weight = 1.0
+            total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
+        
+            # Use the loss to get a reward
+            # The size of this clip determines the size of the reward return space
+            reward = 5 - np.clip(total_loss, 0.0,5.0)
+            
+            return reward, s2, done
+        
+        ####################################################### /REWARD FUNCTION ######################################################
         
         
     # Resets the environment to a random airfoil and returns the new airfoil
@@ -423,10 +485,13 @@ class Vortex_Panel_Solver():
         
 if __name__ == '__main__':
     v_inf = np.array([[100],[10],[0]])
-    solver = Vortex_Panel_Solver(100, 10)
+    solver = Vortex_Panel_Solver(100, 5)
     solver.visualize_airfoil(1)
     solver.visualize_cp(solver.solve_cp(v_inf), 1)
     cl = solver.solve_cl(v_inf)
     cdp = solver.solve_cdp(v_inf)
     cm4c = solver.solve_cm4c(v_inf)
+    action = np.random.rand(1,10)
+    solver.step(action,2,3)
+    
     
