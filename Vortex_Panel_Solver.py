@@ -19,6 +19,8 @@ class Vortex_Panel_Solver():
         # Create upper surface
         upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        while (upper_surface_y == 0.0).any():
+            upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
         upper_surface_y[0][0] = 0.01
         upper_surface_y[0][-1] = 0.0
         upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
@@ -26,6 +28,8 @@ class Vortex_Panel_Solver():
         # Create lower surface
         lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
+        while (lower_surface_y == 0.0).any():
+            lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
         lower_surface_y[0][0] = 0.0
         lower_surface_y[0][-1] = -0.01
         lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
@@ -366,14 +370,17 @@ class Vortex_Panel_Solver():
         plt.close()
      
     # Performs the action on the airfoil and returns a reward
-    # @param action - action set in form np.array(2 * n_panels_per_surface,)
+    # @param a - the action index
     # @param v_inf_test_points - n freestream velocity magnitudes in form np.array([v0, v1, v2, v3, v4, ..., vn])
     # @param alpha_test_points - n angles of attack in form np.array([a0, a1, a2, a3, a4, ..., an])
     # @param cl_test_points - n lift coefficients in form np.array([cl0, ..., cln])
     # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
     # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
     # @return the next state, reward, and whether to terminate simulator
-    def step(self, action, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points):
+    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points):
+        
+        # Get the airfoil transforming action set
+        action = self.a_to_action(a)
         
         # Determine if simulation is complete
         self.curr_step += 1
@@ -449,6 +456,22 @@ class Vortex_Panel_Solver():
         
         ####################################################### /REWARD FUNCTION ######################################################
         
+    # converts discrete action, a, into an airfoil transforming action
+    # @param a - the action idex to be converted
+    # @return the airfoil transforming action set in form np.array(2 * n_panels_per_surface,)
+    def a_to_action(self,a):
+        # Action set can either move a vertex up by 10% or down by 10%
+        # There are 2*n_panels_per_surface + 1 vertices, with 2*n_panels_per_surface alterable vertices
+        # Therefore we must limit an airfoil transforming action set to alter only one vertex at a time
+        multiplier = 0.9 * (1 - a % 2) + 1.1 * (a % 2)
+        vertex = a // 2
+        if vertex >= self.n_panels_per_surface:
+            vertex -+ 1
+            
+        action = np.ones(2 * self.n_panels_per_surface)
+        action[vertex] = multiplier
+            
+        return a
         
     # Resets the environment to a random airfoil and returns the new airfoil
     # @param vis_foil=False - determined whether the new airfoil is saved as an image
