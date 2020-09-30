@@ -377,8 +377,9 @@ class Vortex_Panel_Solver():
     # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
     # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
     # @param vis_foil=False - determined whether the new airfoil is saved as an image
+    # @param n - number label of airfoil
     # @return the next state, reward, and whether to terminate simulator
-    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, vis_foil=False):
+    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, vis_foil=False, n=0):
         
         # Get the airfoil transforming action set
         action = self.a_to_action(a)
@@ -403,16 +404,28 @@ class Vortex_Panel_Solver():
         n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
         n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
         if (n_peaks_upper > 1 or n_peaks_lower > 1):
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
             return -100.0, s1, done
         
         # If the action moves any points outside of the acceptable range, return a large negative reward and the original state
         # The acceptable range is any y/c between [-1.0, 1.0]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
         elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
             return -100.0, s1, done
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the original state
         elif (y_coords_upper < y_coords_lower)[1:].any():
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
             return -100.0, s1, done
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
@@ -462,6 +475,10 @@ class Vortex_Panel_Solver():
             # The size of this clip determines the size of the reward return space
             reward = 5 - np.clip(total_loss, 0.0,5.0)
             
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
             return reward, s2, done
         
         ####################################################### /REWARD FUNCTION ######################################################
