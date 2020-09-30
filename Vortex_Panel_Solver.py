@@ -14,7 +14,7 @@ class Vortex_Panel_Solver():
         self.n_panels_per_surface = n_panels_per_surface
         self.num_actions = 10
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
-        self.precision = 10
+        self.precision = 30 # ***** MUST BE EVEN ***** #
         
         # Create upper surface
         upper_surface_x = np.linspace(1,0,n_panels_per_surface+1).reshape(1, n_panels_per_surface+1)
@@ -272,6 +272,60 @@ class Vortex_Panel_Solver():
         # Solve for cn
         ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=x_coords)
         return ca
+
+    # Gets the lift coefficient based on the pressure distribution
+    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the lift force coefficient
+    def solve_cl(self, v_inf):
+        ca = self.solve_ca(v_inf)
+        cn = self.solve_cn(v_inf)
+        alpha = np.arctan(v_inf[1][0] / v_inf[0][0])
+        cl = cn * np.cos(alpha) - ca * np.sin(alpha)
+        return cl
+    
+    # Gets the pressure drag coefficient based on the pressure distribution
+    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the pressure drag  coefficient
+    def solve_cdp(self, v_inf):
+        ca = self.solve_ca(v_inf)
+        cn = self.solve_cn(v_inf)
+        alpha = np.arctan(v_inf[1][0] / v_inf[0][0])
+        cdp = cn * np.sin(alpha) + ca * np.cos(alpha)
+        return cdp
+
+    # Gets the quarter chord moment coefficient based on the pressure distribution
+    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the quarter chord moment coefficient
+    def solve_cm4c(self, v_inf):
+        # Get and split cp into lower and upper
+        cp = self.solve_cp(v_inf)
+        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
+        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
+        
+        # Get and split x/c coords
+        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
+        
+        # Get and split y/c coords
+        y_coords_upper = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][0:self.n_panels_per_surface][::-1]
+        y_coords_lower = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
+        
+        # Solve for differential slopes
+        x_verts_upper = (self.surface_x[0][0:self.n_panels_per_surface+1])[::-1]
+        x_verts_lower = (self.surface_x[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        y_verts_upper = (self.surface_y[0][0:self.n_panels_per_surface+1])[::-1]
+        y_verts_lower = (self.surface_y[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        dy_upper = (np.roll(y_verts_upper,-1) - y_verts_upper)[:-1]
+        dy_lower = (np.roll(y_verts_lower,-1) - y_verts_lower)[:-1]
+        dx_upper = (np.roll(x_verts_upper,-1) - x_verts_upper)[:-1]
+        dx_lower = (np.roll(x_verts_lower,-1) - x_verts_lower)[:-1]
+        slope_upper = dy_upper / dx_upper
+        slope_lower = dy_lower / dx_lower
+        
+        # Solve for cm4c
+        part_1 = np.trapz((cp_upper - cp_lower) * (0.25 - x_coords), x=x_coords)
+        part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=x_coords)
+        cm4c = part_1 + part_2
+        return cm4c
     
     # Visualizes the pressure distribution over the airfoil
     # @param cp - pressure distribution of airfoil
@@ -310,11 +364,27 @@ class Vortex_Panel_Solver():
         save_str = "airfoil_" + str(n) + ".png"
         plt.savefig(save_str, dpi = 500)
         plt.close()
+     
+    #
+    def get_reward(self):
+        print("Getting reward...")
+        
+    #
+    def step(self):
+        print("Stepping Vortex_Panel_Solver...")
+        
         
     #
     def reset(self):
         print("Resetting Vortex_Panel_Solver...")
+        
+        
+if __name__ == '__main__':
+    v_inf = np.array([[100],[10],[0]])
+    solver = Vortex_Panel_Solver(100, 10)
+    solver.visualize_airfoil(1)
+    solver.visualize_cp(solver.solve_cp(v_inf), 1)
+    cl = solver.solve_cl(v_inf)
+    cdp = solver.solve_cdp(v_inf)
+    cm4c = solver.solve_cm4c(v_inf)
     
-    #
-    def step(self):
-        print("Stepping Vortex_Panel_Solver...")
