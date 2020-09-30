@@ -28,7 +28,7 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
             a1 = agent.get_action(s1)
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            vis_foil = (n % 1000 == 0)
+            vis_foil = (n % 100 == 0)
             n += 1 
             (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1)
             
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     n_panel_per_surface = 10
     n_sets = 1
     n_episodes = 1
-    n_steps = 11000
+    n_steps = 1100
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -73,12 +73,12 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 1000
+    start_data_set_size = 100
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 5
     num_neurons_in_layer = 64
-    clone_interval = 1000
+    clone_interval = 100
     alpha = 0.0025
     gamma = 0.99
     epsilon_start = 1.00
