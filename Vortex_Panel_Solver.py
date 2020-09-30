@@ -377,7 +377,7 @@ class Vortex_Panel_Solver():
             
         ####################################################### REWARD FUNCTION #######################################################
         
-        # If the airfoil is too spikey, return a large negative reward and the new airfoil
+        # If the airfoil is too spikey, return a negative reward and the new airfoil
         # Too spikey is defined as having more than a single peak per surface
         y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
         y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
