@@ -457,7 +457,7 @@ class Vortex_Panel_Solver():
         ####################################################### /REWARD FUNCTION ######################################################
         
     # converts discrete action, a, into an airfoil transforming action
-    # @param a - the action idex to be converted
+    # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
     # @return the airfoil transforming action set in form np.array(2 * n_panels_per_surface,)
     def a_to_action(self,a):
         # Action set can either move a vertex up by 10% or down by 10%
@@ -466,7 +466,7 @@ class Vortex_Panel_Solver():
         multiplier = 0.9 * (1 - a % 2) + 1.1 * (a % 2)
         vertex = a // 2
         if vertex >= self.n_panels_per_surface:
-            vertex -+ 1
+            vertex += 1
             
         action = np.ones(2 * self.n_panels_per_surface)
         action[vertex] = multiplier
