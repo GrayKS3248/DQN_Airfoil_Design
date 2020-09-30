@@ -375,6 +375,7 @@ class Vortex_Panel_Solver():
         
         # Determine max flow turning angle on upper and lower surfaces
         
+        
         ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a large negative reward and the old airfoil
         # The acceptable range is any y/c between [-1.0, 1.0]
@@ -409,7 +410,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the airfoil has a turning angle that is too great (>90 degrees), return a negative reward and the new airfoil
-        elif ():
+        elif (False):
             return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
