@@ -42,8 +42,9 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
         # After an episode is done, update the logbook
         agent.end_episode()
 
-    # Onces an episode set is complete, update the logbook and terminate the current log
+    # Onces an episode set is complete, update the logbook, terminate the current log, draw the airfoil
     agent.terminate_agent()
+    env.visualize_airfoil(curr_set)
     
     return agent
 
@@ -59,8 +60,8 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    n_sets = 100
-    n_episodes = 1005                         # Best = 505
+    n_sets = 2
+    n_episodes = 10                         # Best = 505
     n_steps = 100
     
     # Environment
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 50000                 # Best = 50000
-    start_data_set_size = 500                 # Best = 500
+    start_data_set_size = 10                 # Best = 500
     sequence_size = 1                         # Best = 1 (likely because we already have state derivative data)
     minibatch_size = 32                       # Best = 32
     num_hidden_layers = 2                     # Constrained = 2

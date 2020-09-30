@@ -362,7 +362,7 @@ class Vortex_Panel_Solver():
         action = np.ones(2 * self.n_panels_per_surface)
         action[vertex] = multiplier
             
-        return a        
+        return action
 
     # Performs the action on the airfoil and returns a reward
     # @param a - the action index
@@ -383,7 +383,7 @@ class Vortex_Panel_Solver():
         
         # Perform the action set on the state
         temp = s1[0][:-1] * action
-        s2 = np.append(temp, temp[0][0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
+        s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
         
         ####################################################### REWARD FUNCTION #######################################################
         
