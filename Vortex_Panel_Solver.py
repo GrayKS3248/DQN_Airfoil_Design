@@ -367,43 +367,34 @@ class Vortex_Panel_Solver():
         temp = self.surface_y[0][:-1] * action
         s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
             
-        ####################################################### REWARD FUNCTION #######################################################
-        
-        # If the airfoil is too spikey, return a negative reward and the new airfoil
-        # Too spikey is defined as having more than a single peak per surface
+        # Determine airfoil spikeness
         y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
         y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
         n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
         n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
-        if (n_peaks_upper > 1 or n_peaks_lower > 1):
-            
-            # Update the stored airfoil
-            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
-            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
-            self.surface_y = s2
-            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
         
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n)
-                
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
+        # Determine max flow turning angle on upper and lower surfaces
         
+        ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a large negative reward and the old airfoil
         # The acceptable range is any y/c between [-1.0, 1.0]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
-        elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
+        if (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-                
             return s1, -100.0, done
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the new airfoil
         elif (y_coords_upper < y_coords_lower)[1:].any():
-            
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+            return s1, -100.0, done
+        
+        # If the airfoil is too spikey, return a negative reward and the new airfoil
+        # Too spikey is defined as having more than a 2 peaks per surface
+        elif ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
             # Update the stored airfoil
             upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
             lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
@@ -411,16 +402,18 @@ class Vortex_Panel_Solver():
             lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
             self.surface_y = s2
             self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
-            
+        
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-                
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
+        
+        # If the airfoil has a turning angle that is too great (>90 degrees), return a negative reward and the new airfoil
+        elif ():
+            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
         else:
-            
             # Update the stored airfoil
             upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
             lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
@@ -467,7 +460,6 @@ class Vortex_Panel_Solver():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-                
             return s2.reshape(2 * self.n_panels_per_surface + 1), reward, done
         
         ####################################################### /REWARD FUNCTION ######################################################

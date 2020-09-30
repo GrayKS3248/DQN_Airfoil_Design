@@ -28,7 +28,7 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
             a1 = agent.get_action(s1)
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            vis_foil = (n % 100 == 0)
+            vis_foil = (n % 1000 == 0)
             n += 1 
             (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1)
             
