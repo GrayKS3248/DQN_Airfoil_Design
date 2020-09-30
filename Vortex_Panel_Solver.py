@@ -24,7 +24,7 @@ class Vortex_Panel_Solver():
         self.state_dimension = 2 * n_panels_per_surface + 1
         self.n_panels_per_surface = n_panels_per_surface
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
-        self.precision = 20 # ***** MUST BE EVEN ***** #
+        self.precision = 10 # ***** MUST BE EVEN ***** #
         
         self.v_inf_test_points = v_inf_test_points
         self.alpha_test_points = alpha_test_points
@@ -33,13 +33,13 @@ class Vortex_Panel_Solver():
         self.cm4c_test_points = cm4c_test_points
         
         # Create upper surface that is legal
-        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        self.upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
         highest_vertex = np.random.randint(1,self.n_panels_per_surface)
         highest_vertex_height = np.random.randint(1,100) / 100.0   
-        leading_slope = (highest_vertex_height) / (upper_surface_x[0][highest_vertex])
-        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - upper_surface_x[0][highest_vertex])
+        leading_slope = (highest_vertex_height) / (self.upper_surface_x[0][highest_vertex])
+        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - self.upper_surface_x[0][highest_vertex])
         for i in range(self.n_panels_per_surface - 1):
             curr_vertex = i + 1
             # Highest vertex condition
@@ -47,23 +47,23 @@ class Vortex_Panel_Solver():
                 upper_surface_y[0][curr_vertex] = highest_vertex_height
             # Trailing highest vertex
             elif curr_vertex < highest_vertex:
-                x_distance_from_te = upper_surface_x[0][curr_vertex] - 1.0
+                x_distance_from_te = self.upper_surface_x[0][curr_vertex] - 1.0
                 required_height = x_distance_from_te * trailing_slope + 0.01
                 upper_surface_y[0][curr_vertex] = required_height
             # Leading highest vertex    
             else:
-                required_height = upper_surface_x[0][curr_vertex] * leading_slope
+                required_height = self.upper_surface_x[0][curr_vertex] * leading_slope
                 upper_surface_y[0][curr_vertex] = required_height
-        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
+        upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
         
         # Create lower surface that is legal
-        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        self.lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
         lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
         lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
-        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - lower_surface_x[0][lowest_vertex])
-        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - lower_surface_x[0][lowest_vertex])       
+        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - self.lower_surface_x[0][lowest_vertex])
+        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - self.lower_surface_x[0][lowest_vertex])       
         for i in range(self.n_panels_per_surface - 1):
             curr_vertex = i + 1
             # Highest vertex condition
@@ -71,20 +71,19 @@ class Vortex_Panel_Solver():
                 lower_surface_y[0][curr_vertex] = lowest_vertex_height
             # Trailing highest vertex
             elif curr_vertex > lowest_vertex:
-                x_distance_from_te = lower_surface_x[0][curr_vertex] - 1.0
+                x_distance_from_te = self.lower_surface_x[0][curr_vertex] - 1.0
                 required_height = x_distance_from_te * trailing_slope - 0.01
                 lower_surface_y[0][curr_vertex] = required_height
             # Leading highest vertex    
             else:
-                required_height = (lower_surface_x[0][curr_vertex] * leading_slope)
+                required_height = (self.lower_surface_x[0][curr_vertex] * leading_slope)
                 lower_surface_y[0][curr_vertex] = required_height
-        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
+        lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
      
         # Combine upper and lower surfaces
-        self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * n_panels_per_surface + 1)
+        self.surface_x = np.append(self.upper_surface_x[:,:-1], self.lower_surface_x).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
-        self.visualize_airfoil(0)
      
     # Gets the normal vectors of the panels of either to upper or lower surface
     # @param x - x coordinates of the panel vertices
@@ -280,10 +279,10 @@ class Vortex_Panel_Solver():
         cp = 1 - ((v_mag ** 2) / (v_inf_mag ** 2))
         return cp
     
-    # Gets the normal force coefficient based on the pressure distribution
+    # Gets the axial, normal, and moment coefficients based on the pressure distribution
     # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return the normal force coefficient
-    def solve_cn(self, v_inf):
+    # @return the axial, normal, and moment coefficients
+    def solve_ca_cn_cm4c(self, v_inf):
         # Get and split cp into lower and upper
         cp = self.solve_cp(v_inf)
         cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
@@ -291,71 +290,7 @@ class Vortex_Panel_Solver():
         
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
-        
-        # Solve for cn
-        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
-        return cn
-    
-    # Gets the axial force coefficient based on the pressure distribution
-    # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return the axial force coefficient
-    def solve_ca(self, v_inf):
-        # Get and split cp into lower and upper
-        cp = self.solve_cp(v_inf)
-        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
-        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
-        
-        # Get and split x/c coords
-        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
-        
-        # Solve for differential slopes
-        x_verts_upper = (self.surface_x[0][0:self.n_panels_per_surface+1])[::-1]
-        x_verts_lower = (self.surface_x[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        y_verts_upper = (self.surface_y[0][0:self.n_panels_per_surface+1])[::-1]
-        y_verts_lower = (self.surface_y[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        dy_upper = (np.roll(y_verts_upper,-1) - y_verts_upper)[:-1]
-        dy_lower = (np.roll(y_verts_lower,-1) - y_verts_lower)[:-1]
-        dx_upper = (np.roll(x_verts_upper,-1) - x_verts_upper)[:-1]
-        dx_lower = (np.roll(x_verts_lower,-1) - x_verts_lower)[:-1]
-        slope_upper = dy_upper / dx_upper
-        slope_lower = dy_lower / dx_lower
-        
-        # Solve for cn
-        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=x_coords)
-        return ca
 
-    # Gets the lift coefficient based on the pressure distribution
-    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return the lift force coefficient
-    def solve_cl(self, v_inf):
-        ca = self.solve_ca(v_inf)
-        cn = self.solve_cn(v_inf)
-        alpha = np.arctan(v_inf[1][0] / v_inf[0][0])
-        cl = cn * np.cos(alpha) - ca * np.sin(alpha)
-        return cl
-    
-    # Gets the pressure drag coefficient based on the pressure distribution
-    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return the pressure drag  coefficient
-    def solve_cdp(self, v_inf):
-        ca = self.solve_ca(v_inf)
-        cn = self.solve_cn(v_inf)
-        alpha = np.arctan(v_inf[1][0] / v_inf[0][0])
-        cdp = cn * np.sin(alpha) + ca * np.cos(alpha)
-        return cdp
-
-    # Gets the quarter chord moment coefficient based on the pressure distribution
-    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return the quarter chord moment coefficient
-    def solve_cm4c(self, v_inf):
-        # Get and split cp into lower and upper
-        cp = self.solve_cp(v_inf)
-        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
-        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
-        
-        # Get and split x/c coords
-        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
-        
         # Get and split y/c coords
         y_coords_upper = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][0:self.n_panels_per_surface][::-1]
         y_coords_lower = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
@@ -372,11 +307,29 @@ class Vortex_Panel_Solver():
         slope_upper = dy_upper / dx_upper
         slope_lower = dy_lower / dx_lower
         
+        # Solve for ca and cn
+        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=x_coords)
+        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
+        
         # Solve for cm4c
         part_1 = np.trapz((cp_upper - cp_lower) * (0.25 - x_coords), x=x_coords)
         part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=x_coords)
         cm4c = part_1 + part_2
-        return cm4c
+        
+        return ca, cn, cm4c
+
+    # Gets the lift, pressure drag, and moment coefficients based on the pressure distribution
+    # @param v_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the lift, pressure drag, and moment coefficients coefficient
+    def solve_cl_cdp_cm4c(self, v_inf):
+        ca, cn, cm4c = self.solve_ca_cn_cm4c(v_inf)
+        alpha = np.arctan(v_inf[1][0] / v_inf[0][0])
+        
+        # Get lift and drag coeffs
+        cl = cn * np.cos(alpha) - ca * np.sin(alpha)
+        cdp = cn * np.sin(alpha) + ca * np.cos(alpha)
+        
+        return cl, cdp, cm4c
 
     # converts discrete action, a, into an airfoil transforming action
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
@@ -414,12 +367,10 @@ class Vortex_Panel_Solver():
         s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
         
         # Update the stored airfoil
-        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
         lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
-        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
+        upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
+        lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
         self.surface_y = s2
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
             
@@ -473,9 +424,7 @@ class Vortex_Panel_Solver():
                                   [0.0]])
                 
                 # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
-                cl = self.solve_cl(v_inf)
-                cdp = self.solve_cdp(v_inf)
-                cm4c = self.solve_cm4c(v_inf)
+                cl, cdp, cm4c = self.solve_cl_cdp_cm4c(v_inf)
                 
                 # Update the loss function
                 cl_loss += abs((cl - self.cl_test_points[test_point]) / self.cl_test_points[test_point])
@@ -512,13 +461,12 @@ class Vortex_Panel_Solver():
         self.curr_step = 0
         
         # Create upper surface that is legal
-        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
         highest_vertex = np.random.randint(1,self.n_panels_per_surface)
         highest_vertex_height = np.random.randint(1,100) / 100.0   
-        leading_slope = (highest_vertex_height) / (upper_surface_x[0][highest_vertex])
-        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - upper_surface_x[0][highest_vertex])
+        leading_slope = (highest_vertex_height) / (self.upper_surface_x[0][highest_vertex])
+        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - self.upper_surface_x[0][highest_vertex])
         for i in range(self.n_panels_per_surface - 1):
             curr_vertex = i + 1
             # Highest vertex condition
@@ -526,23 +474,22 @@ class Vortex_Panel_Solver():
                 upper_surface_y[0][curr_vertex] = highest_vertex_height
             # Trailing highest vertex
             elif curr_vertex < highest_vertex:
-                x_distance_from_te = upper_surface_x[0][curr_vertex] - 1.0
+                x_distance_from_te = self.upper_surface_x[0][curr_vertex] - 1.0
                 required_height = x_distance_from_te * trailing_slope + 0.01
                 upper_surface_y[0][curr_vertex] = required_height
             # Leading highest vertex    
             else:
-                required_height = upper_surface_x[0][curr_vertex] * leading_slope
+                required_height = self.upper_surface_x[0][curr_vertex] * leading_slope
                 upper_surface_y[0][curr_vertex] = required_height
-        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
+        upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
         
         # Create lower surface that is legal
-        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
         lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
         lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
-        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - lower_surface_x[0][lowest_vertex])
-        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - lower_surface_x[0][lowest_vertex])       
+        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - self.lower_surface_x[0][lowest_vertex])
+        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - self.lower_surface_x[0][lowest_vertex])       
         for i in range(self.n_panels_per_surface - 1):
             curr_vertex = i + 1
             # Highest vertex condition
@@ -550,17 +497,17 @@ class Vortex_Panel_Solver():
                 lower_surface_y[0][curr_vertex] = lowest_vertex_height
             # Trailing highest vertex
             elif curr_vertex > lowest_vertex:
-                x_distance_from_te = lower_surface_x[0][curr_vertex] - 1.0
+                x_distance_from_te = self.lower_surface_x[0][curr_vertex] - 1.0
                 required_height = x_distance_from_te * trailing_slope - 0.01
                 lower_surface_y[0][curr_vertex] = required_height
             # Leading highest vertex    
             else:
-                required_height = (lower_surface_x[0][curr_vertex] * leading_slope)
+                required_height = (self.lower_surface_x[0][curr_vertex] * leading_slope)
                 lower_surface_y[0][curr_vertex] = required_height
-        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
+        lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
      
         # Combine upper and lower surfaces
-        self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * self.n_panels_per_surface + 1)
+        self.surface_x = np.append(self.upper_surface_x[:,:-1], self.lower_surface_x).reshape(1, 2 * self.n_panels_per_surface + 1)
         self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * self.n_panels_per_surface + 1)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
         
@@ -587,7 +534,7 @@ class Vortex_Panel_Solver():
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
         save_str = "cp_airfoil_" + str(n) + ".png"
-        plt.savefig(save_str, dpi = 500)
+        plt.savefig(save_str, dpi = 100)
         plt.close()        
     
     # Visualizes the shape of the airfoil
@@ -605,5 +552,5 @@ class Vortex_Panel_Solver():
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
         save_str = "airfoils/airfoil_" + str(n) + ".png"
-        plt.savefig(save_str, dpi = 500)
+        plt.savefig(save_str, dpi = 100)
         plt.close()

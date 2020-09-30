@@ -4,8 +4,6 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-import torch
-import pickle
 
 # Defines what a set of episodes is
 def run_set(curr_set, n_sets, n_episodes, env, agent):
@@ -18,17 +16,21 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
         
         # Initialize simulation
         s1 = env.reset()
+        env.visualize_airfoil(0)
         agent.add_state_to_sequence(s1)
         
         # Simulate until episode is done
         done = False
+        n = 1
         while not done:
             
             # With probability e select a random action a1, otherwise select a1 = argmax_a Q(s1, a; theta)
             a1 = agent.get_action(s1)
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1)
+            vis_foil = (n % 100 == 0)
+            n += 1 
+            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1)
             
             # Update state sequence buffer, store experience in data_set
             agent.add_experience_to_data_set(s1, a1, r, s2)
@@ -44,7 +46,6 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the airfoil
     agent.terminate_agent()
-    env.visualize_airfoil(curr_set)
     
     return agent
 
@@ -59,10 +60,10 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0565, -0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 5
+    n_panel_per_surface = 10
     n_sets = 1
     n_episodes = 1
-    n_steps = 20000
+    n_steps = 11000
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -72,17 +73,17 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 500           
-    sequence_size = 1                    
-    minibatch_size = 32                    
-    num_hidden_layers = 5                
-    num_neurons_in_layer = 64           
-    clone_interval = 100               
-    alpha = 0.0025                       
-    gamma = 0.99                        
-    epsilon_start = 1.00            
-    epsilon_end = 0.10                      
-    epsilon_depreciation_factor = 0.999767
+    start_data_set_size = 1000
+    sequence_size = 1
+    minibatch_size = 32
+    num_hidden_layers = 5
+    num_neurons_in_layer = 64
+    clone_interval = 1000
+    alpha = 0.0025
+    gamma = 0.99
+    epsilon_start = 1.00
+    epsilon_end = 0.10
+    epsilon_depreciation_factor = math.pow(epsilon_end,(10 / (n_steps - start_data_set_size)))
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
@@ -122,7 +123,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.xlabel('Simulation Step')
     plt.ylabel('Total Reward')
-    plt.savefig('rwd_cur.png', dpi = 200)
+    plt.savefig('results/rwd_cur.png', dpi = 200)
     
     # plot loss curve
     plt.clf()
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.xlabel('Simulation Step')
     plt.ylabel('Loss')
-    plt.savefig('los_cur.png', dpi = 200)
+    plt.savefig('results/los_cur.png', dpi = 200)
     plt.close()
     
     elapsed = time.time() - start
