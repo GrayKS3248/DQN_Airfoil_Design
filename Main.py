@@ -59,10 +59,10 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0565, -0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 10
+    n_panel_per_surface = 5
     n_sets = 1
     n_episodes = 1
-    n_steps = 1010000
+    n_steps = 20000
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -72,17 +72,17 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 10000           
+    start_data_set_size = 500           
     sequence_size = 1                    
     minibatch_size = 32                    
     num_hidden_layers = 5                
     num_neurons_in_layer = 64           
-    clone_interval = 10000               
-    alpha = 0.00025                       
+    clone_interval = 100               
+    alpha = 0.0025                       
     gamma = 0.99                        
     epsilon_start = 1.00            
     epsilon_end = 0.10                      
-    epsilon_depreciation_factor = 0.9999767
+    epsilon_depreciation_factor = 0.999767
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
