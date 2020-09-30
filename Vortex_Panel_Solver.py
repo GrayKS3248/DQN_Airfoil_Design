@@ -363,6 +363,7 @@ class Vortex_Panel_Solver():
         done = (self.curr_step == self.max_num_steps)
         
         # Perform the action set on the state
+        s1 = self.surface_y
         temp = self.surface_y[0][:-1] * action
         s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
         
@@ -389,7 +390,7 @@ class Vortex_Panel_Solver():
                 
             return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
-        # If the action moves any points outside of the acceptable range, return a large negative reward and the new airfoil
+        # If the action moves any points outside of the acceptable range, return a large negative reward and the old airfoil
         # The acceptable range is any y/c between [-1.0, 1.0]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
         elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
@@ -397,7 +398,7 @@ class Vortex_Panel_Solver():
             if(vis_foil):
                 self.visualize_airfoil(n)
                 
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+            return s1, -100.0, done
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the new airfoil
         elif (y_coords_upper < y_coords_lower)[1:].any():
