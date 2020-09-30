@@ -11,21 +11,22 @@ class Vortex_Panel_Solver():
     def __init__(self, max_num_steps, n_panels_per_surface):
         
         self.max_num_steps = max_num_steps
+        self.curr_step = 0
         self.n_panels_per_surface = n_panels_per_surface
         self.num_actions = 10
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
         self.precision = 30 # ***** MUST BE EVEN ***** #
         
         # Create upper surface
-        upper_surface_x = np.linspace(1,0,n_panels_per_surface+1).reshape(1, n_panels_per_surface+1)
-        upper_surface_y = np.random.rand(1,n_panels_per_surface+1)
+        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
         upper_surface_y[0][0] = 0.01
         upper_surface_y[0][-1] = 0.0
         upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
         
         # Create lower surface
-        lower_surface_x = np.linspace(0,1,n_panels_per_surface+1).reshape(1, n_panels_per_surface+1)
-        lower_surface_y = -1.0 * np.random.rand(1,n_panels_per_surface+1)
+        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
         lower_surface_y[0][0] = 0.0
         lower_surface_y[0][-1] = -0.01
         lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
@@ -366,17 +367,58 @@ class Vortex_Panel_Solver():
         plt.close()
      
     #
-    def get_reward(self):
-        print("Getting reward...")
+    # @param
+    # @param
+    # @param
+    # @return the next state, reward, and whether to terminate simulator
+    def step(self, action, v_inf_test_points, alpha_test_points):
         
-    #
-    def step(self):
-        print("Stepping Vortex_Panel_Solver...")
+        # Determine if simulation is complete
+        self.curr_step += 1
+        done = (self.curr_step == self.max_num_steps)
+        
+        # If the airfoil is too spikey, return a large negative reward
+        if ():
+            return -100, s2, done
+        
+        # If the action moves any points outside of the acceptable range, return a large negative reward
+        elif ():
+            return -100, s2, done
+            
+        return 0, s2, done
         
         
-    #
-    def reset(self):
-        print("Resetting Vortex_Panel_Solver...")
+    # Resets the environment to a random airfoil and returns the new airfoil
+    # @param vis_foil=False - determined whether the new airfoil is saved as an image
+    # @param n=0 - the number label of the newairfoil
+    # @return the new airfoil y/c coords (x/c not returned due to even spacing)
+    def reset(self, vis_foil=False, n=0):
+        self.curr_step = 0
+        
+        # Create upper surface
+        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        upper_surface_y[0][0] = 0.01
+        upper_surface_y[0][-1] = 0.0
+        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
+        
+        # Create lower surface
+        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
+        lower_surface_y[0][0] = 0.0
+        lower_surface_y[0][-1] = -0.01
+        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
+     
+        # Combine upper and lower surfaces
+        self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * self.n_panels_per_surface + 1)
+        self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * self.n_panels_per_surface + 1)
+        self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+        
+        # Visualize airfoil
+        if(vis_foil):
+            self.visualize_airfoil(n)
+        
+        return self.surface_y
         
         
 if __name__ == '__main__':
