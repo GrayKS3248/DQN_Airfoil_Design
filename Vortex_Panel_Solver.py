@@ -32,28 +32,59 @@ class Vortex_Panel_Solver():
         self.cdp_test_points = cdp_test_points
         self.cm4c_test_points = cm4c_test_points
         
-        # Create upper surface
+        # Create upper surface that is legal
         upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
-        while (upper_surface_y == 0.0).any():
-            upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
-        upper_surface_y[0][-1] = 0.0
+        highest_vertex = np.random.randint(1,self.n_panels_per_surface)
+        highest_vertex_height = np.random.randint(1,100) / 100.0   
+        leading_slope = (highest_vertex_height) / (upper_surface_x[0][highest_vertex])
+        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - upper_surface_x[0][highest_vertex])
+        for i in range(self.n_panels_per_surface - 1):
+            curr_vertex = i + 1
+            # Highest vertex condition
+            if curr_vertex == highest_vertex:
+                upper_surface_y[0][curr_vertex] = highest_vertex_height
+            # Trailing highest vertex
+            elif curr_vertex < highest_vertex:
+                x_distance_from_te = upper_surface_x[0][curr_vertex] - 1.0
+                required_height = x_distance_from_te * trailing_slope + 0.01
+                upper_surface_y[0][curr_vertex] = required_height
+            # Leading highest vertex    
+            else:
+                required_height = upper_surface_x[0][curr_vertex] * leading_slope
+                upper_surface_y[0][curr_vertex] = required_height
         upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
         
-        # Create lower surface
+        # Create lower surface that is legal
         lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
-        while (lower_surface_y == 0.0).any():
-            lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
-        lower_surface_y[0][0] = 0.0
+        lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
+        lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
+        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
+        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - lower_surface_x[0][lowest_vertex])
+        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - lower_surface_x[0][lowest_vertex])       
+        for i in range(self.n_panels_per_surface - 1):
+            curr_vertex = i + 1
+            # Highest vertex condition
+            if curr_vertex == lowest_vertex:
+                lower_surface_y[0][curr_vertex] = lowest_vertex_height
+            # Trailing highest vertex
+            elif curr_vertex > lowest_vertex:
+                x_distance_from_te = lower_surface_x[0][curr_vertex] - 1.0
+                required_height = x_distance_from_te * trailing_slope - 0.01
+                lower_surface_y[0][curr_vertex] = required_height
+            # Leading highest vertex    
+            else:
+                required_height = (lower_surface_x[0][curr_vertex] * leading_slope)
+                lower_surface_y[0][curr_vertex] = required_height
         lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
      
         # Combine upper and lower surfaces
         self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+        self.visualize_airfoil(0)
      
     # Gets the normal vectors of the panels of either to upper or lower surface
     # @param x - x coordinates of the panel vertices
@@ -405,7 +436,7 @@ class Vortex_Panel_Solver():
             if(vis_foil):
                 self.visualize_airfoil(n)
                 
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the action moves any points outside of the acceptable range, return a large negative reward and the new airfoil
         # The acceptable range is any y/c between [-1.0, 1.0]
@@ -480,22 +511,52 @@ class Vortex_Panel_Solver():
     def reset(self, vis_foil=False, n=0):
         self.curr_step = 0
         
-        # Create upper surface
+        # Create upper surface that is legal
         upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
-        while (upper_surface_y == 0.0).any():
-            upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
-        upper_surface_y[0][-1] = 0.0
+        highest_vertex = np.random.randint(1,self.n_panels_per_surface)
+        highest_vertex_height = np.random.randint(1,100) / 100.0   
+        leading_slope = (highest_vertex_height) / (upper_surface_x[0][highest_vertex])
+        trailing_slope = (0.01 - highest_vertex_height) / (1.0 - upper_surface_x[0][highest_vertex])
+        for i in range(self.n_panels_per_surface - 1):
+            curr_vertex = i + 1
+            # Highest vertex condition
+            if curr_vertex == highest_vertex:
+                upper_surface_y[0][curr_vertex] = highest_vertex_height
+            # Trailing highest vertex
+            elif curr_vertex < highest_vertex:
+                x_distance_from_te = upper_surface_x[0][curr_vertex] - 1.0
+                required_height = x_distance_from_te * trailing_slope + 0.01
+                upper_surface_y[0][curr_vertex] = required_height
+            # Leading highest vertex    
+            else:
+                required_height = upper_surface_x[0][curr_vertex] * leading_slope
+                upper_surface_y[0][curr_vertex] = required_height
         upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
         
-        # Create lower surface
+        # Create lower surface that is legal
         lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
-        while (lower_surface_y == 0.0).any():
-            lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
-        lower_surface_y[0][0] = 0.0
+        lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
+        lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
+        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
+        leading_slope = (0.0 - lowest_vertex_height) / (0.0 - lower_surface_x[0][lowest_vertex])
+        trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - lower_surface_x[0][lowest_vertex])       
+        for i in range(self.n_panels_per_surface - 1):
+            curr_vertex = i + 1
+            # Highest vertex condition
+            if curr_vertex == lowest_vertex:
+                lower_surface_y[0][curr_vertex] = lowest_vertex_height
+            # Trailing highest vertex
+            elif curr_vertex > lowest_vertex:
+                x_distance_from_te = lower_surface_x[0][curr_vertex] - 1.0
+                required_height = x_distance_from_te * trailing_slope - 0.01
+                lower_surface_y[0][curr_vertex] = required_height
+            # Leading highest vertex    
+            else:
+                required_height = (lower_surface_x[0][curr_vertex] * leading_slope)
+                lower_surface_y[0][curr_vertex] = required_height
         lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
      
         # Combine upper and lower surfaces
@@ -543,6 +604,6 @@ class Vortex_Panel_Solver():
         plt.ylim([-1,1])
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
-        save_str = "airfoil_" + str(n) + ".png"
+        save_str = "airfoils/airfoil_" + str(n) + ".png"
         plt.savefig(save_str, dpi = 500)
         plt.close()
