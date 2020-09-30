@@ -7,14 +7,30 @@ from scipy.signal import find_peaks
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Vortex panel method solver and environment stepper for a 1m chord length airfoil
+# @param max_num_steps - the max number of times an airfoil can be changed by an agent
+# @param n_panels_per_surface - the number of panels per surface on the airfoil
+# @param v_inf_test_points - n freestream velocity magnitudes in form np.array([v0, v1, v2, v3, v4, ..., vn])
+# @param alpha_test_points - n angles of attack in form np.array([a0, a1, a2, a3, a4, ..., an])
+# @param cl_test_points - n lift coefficients in form np.array([cl0, ..., cln])
+# @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
+# @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
 class Vortex_Panel_Solver():
-    def __init__(self, max_num_steps, n_panels_per_surface):
+    def __init__(self, max_num_steps, n_panels_per_surface, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points):
         
         self.max_num_steps = max_num_steps
         self.curr_step = 0
+        self.num_actions = 4 * n_panels_per_surface - 2
+        self.state_dimension = 2 * n_panels_per_surface + 1
         self.n_panels_per_surface = n_panels_per_surface
         self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
         self.precision = 30 # ***** MUST BE EVEN ***** #
+        
+        self.v_inf_test_points = v_inf_test_points
+        self.alpha_test_points = alpha_test_points
+        self.cl_test_points = cl_test_points
+        self.cdp_test_points = cdp_test_points
+        self.cm4c_test_points = cm4c_test_points
         
         # Create upper surface
         upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
@@ -330,6 +346,168 @@ class Vortex_Panel_Solver():
         part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=x_coords)
         cm4c = part_1 + part_2
         return cm4c
+
+    # converts discrete action, a, into an airfoil transforming action
+    # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
+    # @return the airfoil transforming action set in form np.array(2 * n_panels_per_surface,)
+    def a_to_action(self,a):
+        # Action set can either move a vertex up by 10% or down by 10%
+        # There are 2*n_panels_per_surface + 1 vertices, with 2*n_panels_per_surface alterable vertices
+        # Therefore we must limit an airfoil transforming action set to alter only one vertex at a time
+        multiplier = 0.9 * (1 - a % 2) + 1.1 * (a % 2)
+        vertex = a // 2
+        if vertex >= self.n_panels_per_surface:
+            vertex += 1
+            
+        action = np.ones(2 * self.n_panels_per_surface)
+        action[vertex] = multiplier
+            
+        return a        
+
+    # Performs the action on the airfoil and returns a reward
+    # @param a - the action index
+    # @param vis_foil=False - determined whether the new airfoil is saved as an image
+    # @param n - number label of airfoil
+    # @return the next state, reward, and whether to terminate simulator
+    def step(self, a, vis_foil=False, n=0):
+        
+        # Get the airfoil transforming action set
+        action = self.a_to_action(a)
+        
+        # Determine if simulation is complete
+        self.curr_step += 1
+        done = (self.curr_step == self.max_num_steps)
+        
+        # Get the initial state
+        s1 = self.surface_y
+        
+        # Perform the action set on the state
+        temp = s1[0][:-1] * action
+        s2 = np.append(temp, temp[0][0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
+        
+        ####################################################### REWARD FUNCTION #######################################################
+        
+        # If the airfoil is too spikey, return a large negative reward and the original state
+        # Too spikey is defined as having more than a single peak per surface
+        y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
+        y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
+        n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
+        if (n_peaks_upper > 1 or n_peaks_lower > 1):
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
+            return s1.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+        
+        # If the action moves any points outside of the acceptable range, return a large negative reward and the original state
+        # The acceptable range is any y/c between [-1.0, 1.0]
+        # The acceptable range for the TE is y/c between [-0.10,0.10]
+        elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
+            return s1.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+        
+        # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the original state
+        elif (y_coords_upper < y_coords_lower)[1:].any():
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
+            return s1.reshape(2 * self.n_panels_per_surface + 1), -100.0, done
+        
+        # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
+        else:
+            # Update the stored airfoil
+            upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+            lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+            upper_surface_normal = self.get_normal(upper_surface_x, y_coords_upper)
+            lower_surface_normal = self.get_normal(lower_surface_x, y_coords_lower)
+            self.surface_y = s2
+            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+            
+            # init loss sum to 0.0
+            cl_loss = 0.0
+            cdp_loss = 0.0
+            cm4c_loss = 0.0
+            
+            n_test_points = np.size(self.v_inf_test_points)
+            for test_point in range(n_test_points):
+                
+                # Get the current velocity vector
+                v_inf = np.array([[self.v_inf_test_points[test_point] * np.cos(self.alpha_test_points[test_point])], 
+                                  [self.v_inf_test_points[test_point] * np.sin(self.alpha_test_points[test_point])], 
+                                  [0.0]])
+                
+                # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
+                cl = self.solve_cl(v_inf)
+                cdp = self.solve_cdp(v_inf)
+                cm4c = self.solve_cm4c(v_inf)
+                
+                # Update the loss function
+                cl_loss += abs((cl - self.cl_test_points[test_point]) / self.cl_test_points[test_point])
+                cdp_loss += abs((cdp - self.cdp_test_points[test_point]) / self.cdp_test_points[test_point])
+                cm4c_loss += abs((cm4c - self.cm4c_test_points[test_point]) / self.cm4c_test_points[test_point])
+                
+            # Calculate the total weighted loss
+            # Adjust weights to get more tuned results
+            cl_loss = cl_loss / n_test_points
+            cdp_loss = cdp_loss / n_test_points
+            cm4c_loss = cm4c_loss / n_test_points
+            cl_loss_weight = 5.0
+            cdp_loss_weight = 2.0
+            cm4c_loss_weight = 1.0
+            total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
+        
+            # Use the loss to get a reward
+            # The size of this clip determines the size of the reward return space
+            reward = 5 - np.clip(total_loss, 0.0,5.0)
+            
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
+                
+            return s2.reshape(2 * self.n_panels_per_surface + 1), reward, done
+        
+        ####################################################### /REWARD FUNCTION ######################################################
+        
+    # Resets the environment to a random airfoil and returns the new airfoil
+    # @param vis_foil=False - determined whether the new airfoil is saved as an image
+    # @param n=0 - the number label of the newairfoil
+    # @return the new airfoil y/c coords (x/c not returned due to even spacing)
+    def reset(self, vis_foil=False, n=0):
+        self.curr_step = 0
+        
+        # Create upper surface
+        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        while (upper_surface_y == 0.0).any():
+            upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
+        upper_surface_y[0][0] = 0.01
+        upper_surface_y[0][-1] = 0.0
+        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
+        
+        # Create lower surface
+        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
+        while (lower_surface_y == 0.0).any():
+            lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
+        lower_surface_y[0][0] = 0.0
+        lower_surface_y[0][-1] = -0.01
+        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
+     
+        # Combine upper and lower surfaces
+        self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * self.n_panels_per_surface + 1)
+        self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * self.n_panels_per_surface + 1)
+        self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+        
+        # Visualize airfoil
+        if(vis_foil):
+            self.visualize_airfoil(n)
+        
+        return self.surface_y.reshape(2 * self.n_panels_per_surface + 1)
     
     # Visualizes the pressure distribution over the airfoil
     # @param cp - pressure distribution of airfoil
@@ -368,166 +546,3 @@ class Vortex_Panel_Solver():
         save_str = "airfoil_" + str(n) + ".png"
         plt.savefig(save_str, dpi = 500)
         plt.close()
-     
-    # Performs the action on the airfoil and returns a reward
-    # @param a - the action index
-    # @param v_inf_test_points - n freestream velocity magnitudes in form np.array([v0, v1, v2, v3, v4, ..., vn])
-    # @param alpha_test_points - n angles of attack in form np.array([a0, a1, a2, a3, a4, ..., an])
-    # @param cl_test_points - n lift coefficients in form np.array([cl0, ..., cln])
-    # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
-    # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
-    # @param vis_foil=False - determined whether the new airfoil is saved as an image
-    # @param n - number label of airfoil
-    # @return the next state, reward, and whether to terminate simulator
-    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, vis_foil=False, n=0):
-        
-        # Get the airfoil transforming action set
-        action = self.a_to_action(a)
-        
-        # Determine if simulation is complete
-        self.curr_step += 1
-        done = (self.curr_step == self.max_num_steps)
-        
-        # Get the initial state
-        s1 = self.surface_y
-        
-        # Perform the action set on the state
-        temp = s1[0][:-1] * action
-        s2 = np.append(temp, temp[0][0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
-        
-        ####################################################### REWARD FUNCTION #######################################################
-        
-        # If the airfoil is too spikey, return a large negative reward and the original state
-        # Too spikey is defined as having more than a single peak per surface
-        y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
-        y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
-        n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
-        if (n_peaks_upper > 1 or n_peaks_lower > 1):
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n)
-                
-            return -100.0, s1, done
-        
-        # If the action moves any points outside of the acceptable range, return a large negative reward and the original state
-        # The acceptable range is any y/c between [-1.0, 1.0]
-        # The acceptable range for the TE is y/c between [-0.10,0.10]
-        elif (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n)
-                
-            return -100.0, s1, done
-        
-        # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the original state
-        elif (y_coords_upper < y_coords_lower)[1:].any():
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n)
-                
-            return -100.0, s1, done
-        
-        # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
-        else:
-            # Update the stored airfoil
-            upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-            lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-            upper_surface_normal = self.get_normal(upper_surface_x, y_coords_upper)
-            lower_surface_normal = self.get_normal(lower_surface_x, y_coords_lower)
-            self.surface_y = s2
-            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
-            
-            # init loss sum to 0.0
-            cl_loss = 0.0
-            cdp_loss = 0.0
-            cm4c_loss = 0.0
-            
-            n_test_points = np.size(v_inf_test_points)
-            for test_point in range(n_test_points):
-                
-                # Get the current velocity vector
-                v_inf = np.array([[v_inf_test_points[test_point] * np.cos(alpha_test_points[test_point])], 
-                                  [v_inf_test_points[test_point] * np.sin(alpha_test_points[test_point])], 
-                                  [0.0]])
-                
-                # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
-                cl = self.solve_cl(v_inf)
-                cdp = self.solve_cdp(v_inf)
-                cm4c = self.solve_cm4c(v_inf)
-                
-                # Update the loss function
-                cl_loss += abs((cl - cl_test_points[test_point]) / cl_test_points[test_point])
-                cdp_loss += abs((cdp - cdp_test_points[test_point]) / cdp_test_points[test_point])
-                cm4c_loss += abs((cm4c - cm4c_test_points[test_point]) / cm4c_test_points[test_point])
-                
-            # Calculate the total weighted loss
-            # Adjust weights to get more tuned results
-            cl_loss = cl_loss / n_test_points
-            cdp_loss = cdp_loss / n_test_points
-            cm4c_loss = cm4c_loss / n_test_points
-            cl_loss_weight = 5.0
-            cdp_loss_weight = 2.0
-            cm4c_loss_weight = 1.0
-            total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
-        
-            # Use the loss to get a reward
-            # The size of this clip determines the size of the reward return space
-            reward = 5 - np.clip(total_loss, 0.0,5.0)
-            
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n)
-                
-            return reward, s2, done
-        
-        ####################################################### /REWARD FUNCTION ######################################################
-        
-    # converts discrete action, a, into an airfoil transforming action
-    # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
-    # @return the airfoil transforming action set in form np.array(2 * n_panels_per_surface,)
-    def a_to_action(self,a):
-        # Action set can either move a vertex up by 10% or down by 10%
-        # There are 2*n_panels_per_surface + 1 vertices, with 2*n_panels_per_surface alterable vertices
-        # Therefore we must limit an airfoil transforming action set to alter only one vertex at a time
-        multiplier = 0.9 * (1 - a % 2) + 1.1 * (a % 2)
-        vertex = a // 2
-        if vertex >= self.n_panels_per_surface:
-            vertex += 1
-            
-        action = np.ones(2 * self.n_panels_per_surface)
-        action[vertex] = multiplier
-            
-        return a
-        
-    # Resets the environment to a random airfoil and returns the new airfoil
-    # @param vis_foil=False - determined whether the new airfoil is saved as an image
-    # @param n=0 - the number label of the newairfoil
-    # @return the new airfoil y/c coords (x/c not returned due to even spacing)
-    def reset(self, vis_foil=False, n=0):
-        self.curr_step = 0
-        
-        # Create upper surface
-        upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        upper_surface_y = np.random.rand(1,self.n_panels_per_surface+1)
-        upper_surface_y[0][0] = 0.01
-        upper_surface_y[0][-1] = 0.0
-        upper_surface_normal = self.get_normal(upper_surface_x, upper_surface_y)
-        
-        # Create lower surface
-        lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
-        lower_surface_y = -1.0 * np.random.rand(1,self.n_panels_per_surface+1)
-        lower_surface_y[0][0] = 0.0
-        lower_surface_y[0][-1] = -0.01
-        lower_surface_normal = self.get_normal(lower_surface_x, lower_surface_y)
-     
-        # Combine upper and lower surfaces
-        self.surface_x = np.append(upper_surface_x[:,:-1], lower_surface_x).reshape(1, 2 * self.n_panels_per_surface + 1)
-        self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * self.n_panels_per_surface + 1)
-        self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
-        
-        # Visualize airfoil
-        if(vis_foil):
-            self.visualize_airfoil(n)
-        
-        return self.surface_y

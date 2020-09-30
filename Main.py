@@ -49,15 +49,25 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
 
 
 if __name__ == '__main__':
-    # Environment
-    env = vps.Vortex_Panel_Solver()
-    num_actions = env.num_actions
-    state_dimension = 2
-    
+
+    # Target design parameters
+    v_inf_test_points = np.array([14.207, 14.207, 14.207, 14.207, 14.207, 14.207, 14.207])
+    alpha_test_points = np.array([-5.0, 0.0, 2.0, 4.0, 6.0, 8.0, 10.0]) * np.pi / 180
+    cl_test_points = np.array([-0.3006, 0.2442, 0.4549, 0.7153, 0.9016, 1.0885, 1.2696])
+    cdp_test_points = np.array([0.00282, 0.00122, 0.00168, 0.00236, 0.00381, 0.00642, 0.00970])
+    cm4c_test_points = np.array([-0.0565, -0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
+
     # Simulation parameters
+    n_panel_per_surface = 10
     n_sets = 100
-    n_episodes = 1005                          # Best = 505
-    n_steps = env.max_num_steps
+    n_episodes = 1005                         # Best = 505
+    n_steps = 100
+    
+    # Environment
+    env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
+                                  cl_test_points, cdp_test_points, cm4c_test_points)
+    num_actions = env.num_actions
+    state_dimension = env.state_dimension
     
     # Agent parameters
     max_data_set_size = 50000                 # Best = 50000
