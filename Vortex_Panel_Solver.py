@@ -193,7 +193,7 @@ class Vortex_Panel_Solver():
     
     # Gets the velocity induced by the freestream and the vortex panels at each control point
     # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
-    # @return
+    # @return coefficient of pressure at each control point
     def solve_cp(self, v_inf):
         gamma = self.solve_gamma(v_inf)
         
@@ -228,6 +228,38 @@ class Vortex_Panel_Solver():
         v_inf_mag = np.linalg.norm(v_inf)
         cp = 1 - ((v_mag ** 2) / (v_inf_mag ** 2))
         return cp
+    
+    # Gets the normal force coefficient based on the pressure distribution
+    # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the normal force coefficient
+    def solve_cn(self, v_inf):
+        # Get and split cp into lower and upper
+        cp = self.solve_cp(v_inf)
+        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
+        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
+        
+        # Get and split x/c coords
+        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
+        
+        # Solve for cn
+        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
+        return cn
+    
+    # Gets the axial force coefficient based on the pressure distribution
+    # @param V_inf - freestream velocity in form np.array([[Vx],[Vy],[0]])
+    # @return the axial force coefficient
+    def solve_ca(self, v_inf):
+        # Get and split cp into lower and upper
+        cp = self.solve_cp(v_inf)
+        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
+        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
+        
+        # Get and split x/c coords
+        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
+        
+        # Solve for cn
+        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
+        return cn    
     
     # Visualizes the pressure distribution over the airfoil
     # @param cp - pressure distribution of airfoil
