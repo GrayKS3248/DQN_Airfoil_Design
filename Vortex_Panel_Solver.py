@@ -366,14 +366,6 @@ class Vortex_Panel_Solver():
         s1 = self.surface_y
         temp = self.surface_y[0][:-1] * action
         s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
-        
-        # Update the stored airfoil
-        upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-        lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-        upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
-        lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
-        self.surface_y = s2
-        self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
             
         ####################################################### REWARD FUNCTION #######################################################
         
@@ -384,6 +376,15 @@ class Vortex_Panel_Solver():
         n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
         n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
         if (n_peaks_upper > 1 or n_peaks_lower > 1):
+            
+            # Update the stored airfoil
+            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
+            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
+            self.surface_y = s2
+            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+        
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
@@ -402,6 +403,15 @@ class Vortex_Panel_Solver():
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the new airfoil
         elif (y_coords_upper < y_coords_lower)[1:].any():
+            
+            # Update the stored airfoil
+            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
+            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
+            self.surface_y = s2
+            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+            
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
@@ -410,6 +420,14 @@ class Vortex_Panel_Solver():
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
         else:
+            
+            # Update the stored airfoil
+            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
+            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
+            self.surface_y = s2
+            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
             
             # init loss sum to 0.0
             cl_loss = 0.0
