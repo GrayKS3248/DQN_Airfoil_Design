@@ -376,8 +376,9 @@ class Vortex_Panel_Solver():
     # @param cl_test_points - n lift coefficients in form np.array([cl0, ..., cln])
     # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
     # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
+    # @param vis_foil=False - determined whether the new airfoil is saved as an image
     # @return the next state, reward, and whether to terminate simulator
-    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points):
+    def step(self, a, v_inf_test_points, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, vis_foil=False):
         
         # Get the airfoil transforming action set
         action = self.a_to_action(a)
@@ -416,6 +417,15 @@ class Vortex_Panel_Solver():
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
         else:
+            # Update the stored airfoil
+            upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+            lower_surface_x = np.linspace(0,1,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
+            upper_surface_normal = self.get_normal(upper_surface_x, y_coords_upper)
+            lower_surface_normal = self.get_normal(lower_surface_x, y_coords_lower)
+            self.surface_y = s2
+            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+            
+            # init loss sum to 0.0
             cl_loss = 0.0
             cdp_loss = 0.0
             cm4c_loss = 0.0
@@ -504,17 +514,3 @@ class Vortex_Panel_Solver():
             self.visualize_airfoil(n)
         
         return self.surface_y
-        
-        
-if __name__ == '__main__':
-    v_inf = np.array([[100],[10],[0]])
-    solver = Vortex_Panel_Solver(100, 5)
-    solver.visualize_airfoil(1)
-    solver.visualize_cp(solver.solve_cp(v_inf), 1)
-    cl = solver.solve_cl(v_inf)
-    cdp = solver.solve_cdp(v_inf)
-    cm4c = solver.solve_cm4c(v_inf)
-    action = np.random.rand(1,10)
-    solver.step(action,2,3)
-    
-    
