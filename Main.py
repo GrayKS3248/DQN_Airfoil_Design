@@ -73,7 +73,7 @@ if __name__ == '__main__':
     n_panel_per_surface = 10
     n_sets = 1
     n_episodes = 2
-    n_steps = int(82.09035 * (n_panel_per_surface + 0.5)) # In this number of steps, all vertices can be moved from min to max value
+    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
