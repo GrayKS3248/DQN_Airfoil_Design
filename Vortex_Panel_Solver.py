@@ -37,7 +37,7 @@ class Vortex_Panel_Solver():
         upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
         highest_vertex = np.random.randint(1,self.n_panels_per_surface)
-        highest_vertex_height = np.random.randint(1,100) / 100.0   
+        highest_vertex_height = np.random.randint(1,100) / 300.0   
         leading_slope = (highest_vertex_height) / (self.upper_surface_x[0][highest_vertex])
         trailing_slope = (0.01 - highest_vertex_height) / (1.0 - self.upper_surface_x[0][highest_vertex])
         for i in range(self.n_panels_per_surface - 1):
@@ -61,7 +61,7 @@ class Vortex_Panel_Solver():
         lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
         lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
-        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
+        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 300.0       
         leading_slope = (0.0 - lowest_vertex_height) / (0.0 - self.lower_surface_x[0][lowest_vertex])
         trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - self.lower_surface_x[0][lowest_vertex])       
         for i in range(self.n_panels_per_surface - 1):
@@ -136,7 +136,7 @@ class Vortex_Panel_Solver():
         
         # Combine results
         return vn_prime_j, vn_prime_jp1, vx_prime_j, vx_prime_jp1, vy_prime_j, vy_prime_jp1
-    
+            
     #Solves for the A matrices
     # @return the A matrix that solves the normal vel mag, the A matrix that solves the vx vel mag, and the A matrix that solves the vy vel mag
     def get_A(self):
@@ -271,13 +271,13 @@ class Vortex_Panel_Solver():
         # Action set can either move a vertex up by 10% or down by 10%
         # There are 2*n_panels_per_surface + 1 vertices, with 2*n_panels_per_surface alterable vertices
         # Therefore we must limit an airfoil transforming action set to alter only one vertex at a time
-        multiplier = 0.9 * (1 - a % 2) + 1.1 * (a % 2)
+        adder = -0.02 * (1 - a % 2) + 0.02 * (a % 2)
         vertex = a // 2
         if vertex >= self.n_panels_per_surface:
             vertex += 1
             
-        action = np.ones(2 * self.n_panels_per_surface)
-        action[vertex] = multiplier
+        action = np.zeros(2 * self.n_panels_per_surface)
+        action[vertex] = adder
             
         return action
 
@@ -297,23 +297,34 @@ class Vortex_Panel_Solver():
         
         # Perform the action set on the state
         s1 = self.surface_y
-        temp = self.surface_y[0][:-1] * action
+        temp = self.surface_y[0][:-1] + action
         s2 = np.append(temp, temp[0]-0.02).reshape(1,2*self.n_panels_per_surface+1)
             
+        # Determine new airfoil geometry
+        upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+        lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
+        upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
+        lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
+        surface_normal_new = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+    
         # Determine airfoil spikeness
         y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
         y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
         n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
         n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
         
-        # Determine max flow turning angle on upper and lower surfaces
-        
+        # Determine max flow turning angle on upper and lower surfaces (excluding LE and TE)
+        surface_tan_new = np.array([self.surface_normal[1,:], -1.0 * self.surface_normal[0,:]])
+        surface_tan_new_roll = np.roll(surface_tan_new,-1)
+        LE_index = self.n_panels_per_surface-1
+        TE_index = 2*self.n_panels_per_surface-1
+        new_turning_angles = np.delete(np.einsum('ij,ij->j', surface_tan_new, surface_tan_new_roll), [LE_index, TE_index])
         
         ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a large negative reward and the old airfoil
-        # The acceptable range is any y/c between [-1.0, 1.0]
+        # The acceptable range is any y/c between [-0.5, 0.5]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
-        if (max(s2[0]) > 1.0 or min(s2[0]) < -1.0) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
+        if (max(s2[0]) > 0.5 or min(s2[0]) < -0.5) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
@@ -330,12 +341,8 @@ class Vortex_Panel_Solver():
         # Too spikey is defined as having more than a 2 peaks per surface
         elif ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
             # Update the stored airfoil
-            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
-            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
             self.surface_y = s2
-            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+            self.surface_normal = surface_normal_new
         
             # Visualize airfoil
             if(vis_foil):
@@ -343,18 +350,21 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the airfoil has a turning angle that is too great (>90 degrees), return a negative reward and the new airfoil
-        elif (False):
+        elif ((new_turning_angles < 0.0).any()):
+            # Update the stored airfoil
+            self.surface_y = s2
+            self.surface_normal = surface_normal_new
+            
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n)
             return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
         else:
             # Update the stored airfoil
-            upper_surface_y = s2[0][0:self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            lower_surface_y = s2[0][self.n_panels_per_surface: 2*self.n_panels_per_surface+1].reshape(1, self.n_panels_per_surface+1)
-            upper_surface_normal = self.get_normal(self.upper_surface_x, upper_surface_y)
-            lower_surface_normal = self.get_normal(self.lower_surface_x, lower_surface_y)
             self.surface_y = s2
-            self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+            self.surface_normal = surface_normal_new
             
             # init loss sum to 0.0
             cl_loss = 0.0
@@ -409,7 +419,7 @@ class Vortex_Panel_Solver():
         upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         upper_surface_y[0][0] = 0.01
         highest_vertex = np.random.randint(1,self.n_panels_per_surface)
-        highest_vertex_height = np.random.randint(1,100) / 100.0   
+        highest_vertex_height = np.random.randint(1,100) / 300.0   
         leading_slope = (highest_vertex_height) / (self.upper_surface_x[0][highest_vertex])
         trailing_slope = (0.01 - highest_vertex_height) / (1.0 - self.upper_surface_x[0][highest_vertex])
         for i in range(self.n_panels_per_surface - 1):
@@ -432,7 +442,7 @@ class Vortex_Panel_Solver():
         lower_surface_y = np.zeros((1,self.n_panels_per_surface+1))
         lower_surface_y[0][-1] = -0.01
         lowest_vertex = np.random.randint(1,self.n_panels_per_surface)
-        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 100.0       
+        lowest_vertex_height = -1.0 * np.random.randint(1,100) / 300.0       
         leading_slope = (0.0 - lowest_vertex_height) / (0.0 - self.lower_surface_x[0][lowest_vertex])
         trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - self.lower_surface_x[0][lowest_vertex])       
         for i in range(self.n_panels_per_surface - 1):
@@ -493,7 +503,7 @@ class Vortex_Panel_Solver():
         plt.xlabel("x/c [unitless]")
         plt.ylabel("y/c [unitless]")
         plt.xlim([0,1])
-        plt.ylim([-1,1])
+        plt.ylim([-0.5,0.5])
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
         save_str = "airfoils/airfoil_" + str(n) + ".png"

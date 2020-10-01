@@ -4,6 +4,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import pickle
 
 # Defines what a set of episodes is
 def run_set(curr_set, n_sets, n_episodes, env, agent):
@@ -14,22 +15,30 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
     # Train agent over n_episodes of episodes
     for curr_episode in range(n_episodes):
         
+        # Give percent complete update on agent
+        print(str(int(100.0 * (curr_episode / n_episodes))) + "% complete...")
+        
         # Initialize simulation
         s1 = env.reset()
-        env.visualize_airfoil(0)
         agent.add_state_to_sequence(s1)
         
+        # Visualization parameters
+        if (curr_episode == n_episodes - 1):
+            env.visualize_airfoil(0)
+        n = 1
+                
         # Simulate until episode is done
         done = False
-        n = 1
         while not done:
             
             # With probability e select a random action a1, otherwise select a1 = argmax_a Q(s1, a; theta)
             a1 = agent.get_action(s1)
             
-            # Execute action a1 in emulator and observer reward r and next state s2
-            vis_foil = (n % 100 == 0)
+            # Determine wether to draw foil or not
+            vis_foil = (n % 100 == 0) and (curr_episode == n_episodes - 1)
             n += 1 
+            
+            # Execute action a1 in emulator and observer reward r and next state s2
             (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1)
             
             # Update state sequence buffer, store experience in data_set
@@ -46,6 +55,7 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the airfoil
     agent.terminate_agent()
+    print("100% complete...")
     
     return agent
 
@@ -62,8 +72,8 @@ if __name__ == '__main__':
     # Simulation parameters
     n_panel_per_surface = 10
     n_sets = 1
-    n_episodes = 1
-    n_steps = 1100
+    n_episodes = 2
+    n_steps = int(82.09035 * (n_panel_per_surface + 0.5)) # In this number of steps, all vertices can be moved from min to max value
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -73,17 +83,17 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 100
+    start_data_set_size = n_steps
     sequence_size = 1
     minibatch_size = 32
-    num_hidden_layers = 5
+    num_hidden_layers = 2
     num_neurons_in_layer = 64
-    clone_interval = 100
+    clone_interval = start_data_set_size
     alpha = 0.0025
-    gamma = 0.99
+    gamma = 0.999
     epsilon_start = 1.00
     epsilon_end = 0.10
-    epsilon_depreciation_factor = math.pow(epsilon_end,(10 / (n_steps - start_data_set_size)))
+    epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
@@ -102,6 +112,16 @@ if __name__ == '__main__':
     # plot results
     print("Plotting training and trajectory data...")
     start = time.time()
+  
+    # Save all useful variables
+    outputs = {
+        'n_sets' : n_sets, 
+        'n_episodes' : n_episodes, 
+        'env' : env, 
+        'best_agent' : agent,
+        }
+    with open('results/outputs', 'wb') as f:
+        pickle.dump(outputs, f)  
   
     # Calculate locations of cloning and terminal epsilon
     last_data_point = len(agent.logbook['r_tot_discount_avg'])-1
