@@ -7,7 +7,7 @@ import math
 import pickle
 
 # Defines what a set of episodes is
-def run_set(curr_set, n_sets, n_episodes, env, agent):
+def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
             
     # Start Training
     print("Training DQN agent " + str(curr_set) + " of " + str(n_sets-1) + "...")  
@@ -35,7 +35,7 @@ def run_set(curr_set, n_sets, n_episodes, env, agent):
             a1 = agent.get_action(s1)
             
             # Determine wether to draw foil or not
-            vis_foil = (n % 100 == 0) and (curr_episode == n_episodes - 1)
+            vis_foil = (n % n_draw == 0) and (curr_episode == n_episodes - 1)
             n += 1 
             
             # Execute action a1 in emulator and observer reward r and next state s2
@@ -72,8 +72,9 @@ if __name__ == '__main__':
     # Simulation parameters
     n_panel_per_surface = 10
     n_sets = 1
-    n_episodes = 2
+    n_episodes = 101
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
+    n_draw = n_steps // 19
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     num_neurons_in_layer = 64
     clone_interval = start_data_set_size
     alpha = 0.0025
-    gamma = 0.999
+    gamma = 0.99
     epsilon_start = 1.00
     epsilon_end = 0.10
     epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     start = time.time()
     for curr_set in range(n_sets):
         # Run a set of episodes
-        agent = run_set(curr_set, n_sets, n_episodes, env, agent)
+        agent = run_set(curr_set, n_sets, n_episodes, n_draw, env, agent)
     
     elapsed = time.time() - start
     print("Simulation took:", f'{elapsed:.3f}', "seconds.")
