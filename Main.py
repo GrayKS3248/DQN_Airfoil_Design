@@ -72,7 +72,7 @@ if __name__ == '__main__':
     # Simulation parameters
     n_panel_per_surface = 10
     n_sets = 1
-    n_episodes = 1001
+    n_episodes = 2001
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) / 2 # In this number of steps, half vertices can be moved from min to max value
     n_draw = n_steps // 19
     
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 500
+    start_data_set_size = 1000
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 2

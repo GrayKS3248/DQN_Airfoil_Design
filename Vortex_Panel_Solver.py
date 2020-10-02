@@ -392,14 +392,14 @@ class Vortex_Panel_Solver():
             cl_loss = cl_loss / n_test_points
             cdp_loss = cdp_loss / n_test_points
             cm4c_loss = cm4c_loss / n_test_points
-            cl_loss_weight = 1.0
-            cdp_loss_weight = 1.0
+            cl_loss_weight = 5.0
+            cdp_loss_weight = 2.0
             cm4c_loss_weight = 1.0
             total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
         
             # Use the loss to get a reward
             # The size of this clip determines the size of the reward return space
-            reward = 5.0 - np.clip(total_loss, 0.0,5.0)
+            reward = 2.0 - np.clip(total_loss, 0.0,2.0)
             
             # Visualize airfoil
             if(vis_foil):
