@@ -6,6 +6,7 @@ Created on Mon Sep 28 14:23:01 2020
 from scipy.signal import find_peaks 
 import numpy as np
 import matplotlib.pyplot as plt
+import csv
 
 # Vortex panel method solver and environment stepper for a 1m chord length airfoil
 # @param max_num_steps - the max number of times an airfoil can be changed by an agent
@@ -394,7 +395,7 @@ class Vortex_Panel_Solver():
             cm4c_loss = cm4c_loss / n_test_points
             cl_loss_weight = 5.0
             cdp_loss_weight = 2.0
-            cm4c_loss_weight = 1.0
+            cm4c_loss_weight = 0.0
             total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
         
             # Use the loss to get a reward
@@ -472,25 +473,72 @@ class Vortex_Panel_Solver():
         
         return self.surface_y.reshape(2 * self.n_panels_per_surface + 1)
     
-    # Visualizes the pressure distribution over the airfoil
-    # @param cp - pressure distribution of airfoil
-    # @param n - number label of airfoil
-    def visualize_cp(self, cp, n):
+    # Visualizes the pressure distribution over the terminal airfoil at all test points and saves the performance results
+    def visualize_cp_save_performance(self):
+        
+        # Create a performance book
+        performance = {
+                'v_inf': [],
+                'alpha': [],
+                'cl': [],
+                'cdp': [],
+                'cm4c': [],
+                'cl_design': [],
+                'cdp_design': [],
+                'cm4c_design': []
+                }
+        
+        # Get the x coords of the control points
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][:-1].reshape(2*self.n_panels_per_surface)
-        plt.clf
-        plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface))
-        plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface))
-        plt.gca().invert_yaxis()
-        title_str = "Cp for Airfoil " + str(n)
-        plt.title(title_str)
-        plt.xlabel("x/c [unitless]")
-        plt.ylabel("Cp [unitless]")
-        plt.xlim([0,1])
-        fig = plt.gcf()
-        fig.set_size_inches(10, 5)
-        save_str = "cp_airfoil_" + str(n) + ".png"
-        plt.savefig(save_str, dpi = 100)
-        plt.close()        
+        
+        # Step through all the test points
+        for test_point in range(np.size(self.v_inf_test_points)):
+            
+            # Get the distribution and performance parameters
+            v_inf = np.array([[self.v_inf_test_points[test_point] * np.cos(self.alpha_test_points[test_point])], 
+                      [self.v_inf_test_points[test_point] * np.sin(self.alpha_test_points[test_point])], 
+                      [0.0]])
+            cp = self.solve_cp(v_inf)
+            cl, cdp, cm4c = self.solve_cl_cdp_cm4c(v_inf)
+            
+            # Update the performance book
+            performance['v_inf'].append(self.v_inf_test_points[test_point])
+            performance['alpha'].append(self.alpha_test_points[test_point])
+            performance['cl'].append(cl)
+            performance['cdp'].append(cdp)
+            performance['cm4c'].append(cm4c)
+            performance['cl_design'].append(self.cl_test_points[test_point])
+            performance['cdp_design'].append(self.cdp_test_points[test_point])
+            performance['cm4c_design'].append(self.cm4c_test_points[test_point])
+            
+            # Plot the pressure distribution
+            plt.clf
+            plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface))
+            plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface))
+            plt.gca().invert_yaxis()
+            title_str = "Cp for Airfoil at Test Point " + str(test_point)
+            plt.title(title_str)
+            plt.xlabel("x/c [unitless]")
+            plt.ylabel("Cp [unitless]")
+            plt.xlim([0,1])
+            fig = plt.gcf()
+            fig.set_size_inches(10, 5)
+            save_str = "cp_distributions/cp_airfoil_" + str(test_point) + ".png"
+            plt.savefig(save_str, dpi = 100)
+            plt.close()        
+            
+        # Format data for saving
+        performance_data = [{key : value[i] for key, value in performance.items()} 
+                           for i in range(np.size(self.v_inf_test_points))]
+            
+        # Save the performance results as .csv
+        with open('results/performance.csv', 'w', newline='') as csvfile:
+            csv_columns = ['v_inf','alpha','cl','cdp','cm4c','cl_design','cdp_design','cm4c_design']
+            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+            writer.writeheader()
+            for data in performance_data:
+                    writer.writerow(data)
+            
     
     # Visualizes the shape of the airfoil
     # @param n - number label of airfoil

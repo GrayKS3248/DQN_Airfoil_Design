@@ -53,8 +53,9 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         # After an episode is done, update the logbook
         agent.end_episode()
 
-    # Onces an episode set is complete, update the logbook, terminate the current log, draw the airfoil
+    # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent()
+    env.visualize_cp_save_performance()
     print("100% complete...")
     
     return agent
@@ -119,7 +120,7 @@ if __name__ == '__main__':
         'n_sets' : n_sets, 
         'n_episodes' : n_episodes, 
         'env' : env, 
-        'best_agent' : agent,
+        'last_agent' : agent,
         }
     with open('results/outputs', 'wb') as f:
         pickle.dump(outputs, f)  
