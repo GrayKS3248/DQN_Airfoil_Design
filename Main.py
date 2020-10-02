@@ -72,8 +72,8 @@ if __name__ == '__main__':
     # Simulation parameters
     n_panel_per_surface = 10
     n_sets = 1
-    n_episodes = 21
-    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
+    n_episodes = 1001
+    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) / 2 # In this number of steps, half vertices can be moved from min to max value
     n_draw = n_steps // 19
     
     # Environment
@@ -83,18 +83,18 @@ if __name__ == '__main__':
     state_dimension = env.state_dimension
     
     # Agent parameters
-    max_data_set_size = 50000
+    max_data_set_size = 1000000
     start_data_set_size = 500
     sequence_size = 1
     minibatch_size = 32
-    num_hidden_layers = 5
-    num_neurons_in_layer = 64
-    clone_interval = 1000
-    alpha = 0.0025 
-    gamma = 0.95
+    num_hidden_layers = 2
+    num_neurons_in_layer = 128
+    clone_interval = 5000
+    alpha = 0.00025 
+    gamma = 0.99
     epsilon_start = 1.00
     epsilon_end = 0.10
-    epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
+    epsilon_depreciation_factor = math.pow(epsilon_end,(4.0 / (n_episodes*n_steps - start_data_set_size)))
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 

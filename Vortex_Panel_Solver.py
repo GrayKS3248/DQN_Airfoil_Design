@@ -328,17 +328,17 @@ class Vortex_Panel_Solver():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-            return s1, -100.0, done
+            return s1, -1.0, done
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the new airfoil
         elif (y_coords_upper < y_coords_lower)[1:].any():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-            return s1, -100.0, done
+            return s1, -1.0, done
         
         # If the airfoil is too spikey, return a negative reward and the new airfoil
-        # Too spikey is defined as having more than a 2 peaks per surface
+        # Too spikey is defined as having more than a 3 peaks per surface
         elif ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
             # Update the stored airfoil
             self.surface_y = s2
@@ -347,7 +347,7 @@ class Vortex_Panel_Solver():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
+            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil has a turning angle that is too great (>90 degrees), return a negative reward and the new airfoil
         elif ((new_turning_angles < 0.0).any()):
@@ -358,7 +358,7 @@ class Vortex_Panel_Solver():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), -10.0, done
+            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the action is acceptable, return a reward proportional to the mean abs percent error between the new airfoil and the design parameters
         else:
@@ -392,14 +392,14 @@ class Vortex_Panel_Solver():
             cl_loss = cl_loss / n_test_points
             cdp_loss = cdp_loss / n_test_points
             cm4c_loss = cm4c_loss / n_test_points
-            cl_loss_weight = 5.0
-            cdp_loss_weight = 2.0
+            cl_loss_weight = 1.0
+            cdp_loss_weight = 1.0
             cm4c_loss_weight = 1.0
             total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
         
             # Use the loss to get a reward
             # The size of this clip determines the size of the reward return space
-            reward = 5 - np.clip(total_loss, 0.0,5.0)
+            reward = 5.0 - np.clip(total_loss, 0.0,5.0)
             
             # Visualize airfoil
             if(vis_foil):

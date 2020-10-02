@@ -50,7 +50,7 @@ class DQN_Agent():
         
         # Initialze the NN used to estimate Q(s,a) and the optimizer used for gradient descent
         self.Q_Network = NN.Neural_Network(self.sequence_size * self.state_dimension, self.num_actions, self.num_hidden_layers, self.num_neurons_in_layer)
-        self.opt = torch.optim.SGD(self.Q_Network.parameters() , lr=self.alpha)
+        self.opt = torch.optim.Adam(self.Q_Network.parameters() , lr=self.alpha)
         self.loss_fn = torch.nn.MSELoss()
             
         # Initialize the NN used to provide the target for Q improvement
@@ -262,7 +262,7 @@ class DQN_Agent():
             
             # Grad-descent
             loss = self.loss_fn(target, evaluation)
-            #loss = torch.clamp(loss, -1.0, 1.0)
+            loss = torch.clamp(loss, -1.0, 1.0)
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()
