@@ -31,6 +31,16 @@ class DQN_Agent():
     # @param epsilon_depreciation_factor - the rate at which the epsilon parameter decreases from maximum to minimum 
     def __init__(self, num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, minibatch_size, num_hidden_layers, num_neurons_in_layer, target_reset_interval, alpha, gamma, epsilon_start, epsilon_end, epsilon_depreciation_factor):
         
+        # init checks
+        if max_data_set_size < start_data_set_size:
+            raise ValueError("Max data set size must be greater than start data set size")
+        if max_data_set_size < minibatch_size:
+            raise ValueError("Max data set size must be greater than minibatch size")
+        if start_data_set_size < minibatch_size:
+            raise ValueError("Start data set size must be greater than minibatch size")
+        if start_data_set_size < target_reset_interval:
+            raise ValueError("Start data set size must be greater than clone interval")
+        
         # Initialize the input arguments
         self.num_actions = num_actions
         self.state_dimension = state_dimension
