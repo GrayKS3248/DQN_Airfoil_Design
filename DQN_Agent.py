@@ -38,8 +38,8 @@ class DQN_Agent():
             raise ValueError("Max data set size must be greater than minibatch size")
         if start_data_set_size < minibatch_size:
             raise ValueError("Start data set size must be greater than minibatch size")
-        if start_data_set_size < target_reset_interval:
-            raise ValueError("Start data set size must be greater than clone interval")
+        if start_data_set_size > target_reset_interval:
+            raise ValueError("Start data set size must be less than clone interval")
         
         # Initialize the input arguments
         self.num_actions = num_actions
