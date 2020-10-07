@@ -24,7 +24,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         
         # Visualization parameters
         if (curr_episode == n_episodes - 1):
-            env.visualize_airfoil(0, path="curricula_5/")
+            env.visualize_airfoil(0, path="curricula_4/")
         n = 1
                 
         # Simulate until episode is done
@@ -44,7 +44,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
             total_steps += 1
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1, reward_depreciation=0.10, path="curricula_5/")
+            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1, reward_depreciation=0.25, path="curricula_4/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
@@ -61,7 +61,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent(keep_NN=True)
-    env.visualize_cp_save_performance(path="curricula_5/")
+    env.visualize_cp_save_performance(path="curricula_4/")
     print("100.00% Complete!     |     Total Reward : " + '{:.0f}'.format(total_reward))
     
     return agent
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0565, -0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 10
+    n_panel_per_surface = 20
     n_sets = 1
     n_episodes = 2001
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) // 2 # In this number of steps, all vertices can be moved from min to max value
@@ -95,16 +95,16 @@ if __name__ == '__main__':
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 2
-    num_neurons_in_layer = 128
+    num_neurons_in_layer = 200
     clone_interval = 10000
     alpha = 0.00025 
     gamma = 0.99
-    epsilon_start = 0.20
+    epsilon_start = 0.30
     epsilon_end = 0.10
     epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
     
     # Load previous agent and reset its epsilon parameters and logbook
-    with open("curricula_4/results/outputs", "rb") as f:
+    with open("curricula_3/results/outputs", "rb") as f:
         outputs = pickle.load(f)
     agent = outputs['last_agent']
     agent.epsilon = epsilon_start
@@ -151,11 +151,11 @@ if __name__ == '__main__':
     outputs = {
         'n_sets' : n_sets, 
         'n_episodes' : n_episodes, 
-        'depreciation' : 0.10,
+        'depreciation' : 0.25,
         'env' : env, 
         'last_agent' : agent,
         }
-    with open('curricula_5/results/outputs', 'wb') as f:
+    with open('curricula_4/results/outputs', 'wb') as f:
         pickle.dump(outputs, f)  
   
     # Calculate locations of cloning and terminal epsilon
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.xlabel('Simulation Step')
     plt.ylabel('Total Reward')
-    plt.savefig('curricula_5/results/rwd_cur.png', dpi = 200)
+    plt.savefig('curricula_4/results/rwd_cur.png', dpi = 200)
     
     # plot loss curve
     plt.clf()
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.xlabel('Simulation Step')
     plt.ylabel('Loss')
-    plt.savefig('curricula_5/results/los_cur.png', dpi = 200)
+    plt.savefig('curricula_4/results/los_cur.png', dpi = 200)
     plt.close()
     
     elapsed = time.time() - start

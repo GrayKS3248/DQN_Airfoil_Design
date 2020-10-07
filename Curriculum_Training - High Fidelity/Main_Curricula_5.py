@@ -77,7 +77,7 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0565, -0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 10
+    n_panel_per_surface = 20
     n_sets = 1
     n_episodes = 2001
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) // 2 # In this number of steps, all vertices can be moved from min to max value
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 2
-    num_neurons_in_layer = 128
+    num_neurons_in_layer = 200
     clone_interval = 10000
     alpha = 0.00025 
     gamma = 0.99

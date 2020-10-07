@@ -60,7 +60,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         agent.end_episode()
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
-    agent.terminate_agent()
+    agent.terminate_agent(keep_NN=True)
     env.visualize_cp_save_performance()
     print("100.00% Complete!     |     Total Reward : " + '{:.0f}'.format(total_reward))
     
@@ -107,11 +107,6 @@ if __name__ == '__main__':
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
                           minibatch_size, num_hidden_layers, num_neurons_in_layer, clone_interval, 
                           alpha, gamma, epsilon_start, epsilon_end, epsilon_depreciation_factor)  
-
-    # Load previous agent
-    #with open("results/outputs", "rb") as f:
-    #    outputs = pickle.load(f)
-    #agent = outputs['last_agent']
     
     # Run the defined number of sets and update the average
     start = time.time()
