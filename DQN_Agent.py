@@ -192,7 +192,7 @@ class DQN_Agent():
     def add_experience_to_data_set(self, s1, a1, r, s2):
 
         # Add newest state the to state sequence
-        old_sequence = self.state_sequence
+        old_sequence = self.state_sequence.copy()
         self.add_state_to_sequence(s2)
 
         # only add to the memory if the state sequence was full
