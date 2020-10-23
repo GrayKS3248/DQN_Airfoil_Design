@@ -228,6 +228,12 @@ class Vortex_Panel_Solver():
         cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
         cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
         
+        # Make sure that the pressure distribution on the upper surface does not intersect the pressure distribution on the lower surface
+        ok_cp_distribution = (cp_lower < cp_upper).all()
+        
+        # Make sure that the suction peak is on the first half of the airfoil
+        ok_suction_peak = np.argmin(cp_lower) <= self.n_panels_per_surface // 2
+        
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
 
@@ -263,7 +269,7 @@ class Vortex_Panel_Solver():
         cl = cn * np.cos(alpha) - ca * np.sin(alpha)
         cdp = cn * np.sin(alpha) + ca * np.cos(alpha)
         
-        return cl, cdp, cm4c
+        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak)
 
     # converts discrete action, a, into an airfoil transforming action
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
@@ -330,7 +336,7 @@ class Vortex_Panel_Solver():
         minimum_thickness_location = self.surface_x[0][self.n_panels_per_surface+1:][np.argmin(y_coords_upper[1:] - y_coords_lower[1:])]
         
         ####################################################### REWARD FUNCTION #######################################################
-        # If the action moves any points outside of the acceptable range, return a large negative reward and the old airfoil
+        # If the action moves any points outside of the acceptable range, return a negative reward and the old airfoil
         # The acceptable range is any y/c between [-0.5, 0.5]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
         if (max(s2[0]) > 0.5 or min(s2[0]) < -0.5) or (s2[0][0] > 0.10 or s2[0][-1] < -0.10):
@@ -339,15 +345,15 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s1, -1.0, done
         
-        # If the lower surface every intersects the upper surface anywhere but the LE, return a large negative reward and the new airfoil
+        # If the lower surface every intersects the upper surface anywhere but the LE, return a negative reward and the new airfoil
         elif (y_coords_upper < y_coords_lower)[1:].any():
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n, path=path)
             return s1, -1.0, done
         
-        # If the airfoil is too spikey, return a negative reward and the new airfoil
-        # Too spikey is defined as having more than a 3 peaks per surface
+        # If the airfoil is too spikey, return no reward and the new airfoil
+        # Too spikey is defined as having more than a 2 peaks per surface
         elif ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
             # Update the stored airfoil
             self.surface_y = s2
@@ -358,7 +364,7 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
-        # If the airfoil has a turning angle that is too great (>90 degrees), return a negative reward and the new airfoil
+        # If the airfoil has a turning angle that is too great (>90 degrees), return no reward and the new airfoil
         elif ((new_turning_angles < 0.0).any()):
             # Update the stored airfoil
             self.surface_y = s2
@@ -381,7 +387,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil is too thick, return no reward and the new airfoil
-        elif (maximum_thickness > 0.30):
+        elif (maximum_thickness > 0.35):
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -425,6 +431,7 @@ class Vortex_Panel_Solver():
             cm4c_loss = 0.0
             
             n_test_points = np.size(self.v_inf_test_points)
+            good_cp = True
             for test_point in range(n_test_points):
                 
                 # Get the current velocity vector
@@ -433,7 +440,8 @@ class Vortex_Panel_Solver():
                                   [0.0]])
                 
                 # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
-                cl, cdp, cm4c = self.solve_cl_cdp_cm4c(v_inf)
+                cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
+                good_cp = good_cp and cp_state
                 
                 # Update the loss function
                 cl_loss += abs((cl - self.cl_test_points[test_point]) / self.cl_test_points[test_point])
@@ -445,14 +453,18 @@ class Vortex_Panel_Solver():
             cl_loss = cl_loss / n_test_points
             cdp_loss = cdp_loss / n_test_points
             cm4c_loss = cm4c_loss / n_test_points
-            cl_loss_weight = 5.0
-            cdp_loss_weight = 5.0
+            cl_loss_weight = 3.0
+            cdp_loss_weight = 2.0
             cm4c_loss_weight = 1.0
             total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
         
             # Use the loss to get a reward
             # The size of this clip determines the size of the reward return space
-            reward = 2.5 * (reward_depreciation * 2.0 - np.clip(total_loss, 0.0,reward_depreciation * 2.0)) ** 2
+            # If the cp is bad, return a small positive reward
+            if good_cp:
+                reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
+            else:
+                reward = 0.25
             
             # Visualize airfoil
             if(vis_foil):
