@@ -79,8 +79,8 @@ if __name__ == '__main__':
     # Simulation parameters
     n_panel_per_surface = 10
     n_sets = 1
-    n_episodes = 751
-    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) // 2 # In this number of steps, all vertices can be moved from min to max value
+    n_episodes = 501
+    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) * 2 # In this number of steps, all vertices can be moved from min to max value
     n_draw = n_steps // 19
     
     # Environment
