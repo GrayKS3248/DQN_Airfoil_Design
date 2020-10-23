@@ -464,7 +464,7 @@ class Vortex_Panel_Solver():
             if good_cp:
                 reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
             else:
-                reward = 0.25
+                reward = 1.0
             
             # Visualize airfoil
             if(vis_foil):
