@@ -431,7 +431,7 @@ class Vortex_Panel_Solver():
             cm4c_loss = 0.0
             
             n_test_points = np.size(self.v_inf_test_points)
-            good_cp = True
+            cp_state = True
             for test_point in range(n_test_points):
                 
                 # Get the current velocity vector
@@ -441,30 +441,31 @@ class Vortex_Panel_Solver():
                 
                 # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
                 cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
-                good_cp = good_cp and cp_state
+                if not(cp_state):
+                    break
                 
                 # Update the loss function
                 cl_loss += abs((cl - self.cl_test_points[test_point]) / self.cl_test_points[test_point])
                 cdp_loss += abs((cdp - self.cdp_test_points[test_point]) / self.cdp_test_points[test_point])
                 cm4c_loss += abs((cm4c - self.cm4c_test_points[test_point]) / self.cm4c_test_points[test_point])
                 
-            # Calculate the total weighted loss
-            # Adjust weights to get more tuned results
-            cl_loss = cl_loss / n_test_points
-            cdp_loss = cdp_loss / n_test_points
-            cm4c_loss = cm4c_loss / n_test_points
-            cl_loss_weight = 3.0
-            cdp_loss_weight = 2.0
-            cm4c_loss_weight = 1.0
-            total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
-        
-            # Use the loss to get a reward
-            # The size of this clip determines the size of the reward return space
             # If the cp is bad, return a small positive reward
-            if good_cp:
-                reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
+            if not(cp_state):
+                return s2.reshape(2 * self.n_panels_per_surface + 1), 0.5, done
             else:
-                reward = 0.75
+                # Calculate the total weighted loss
+                # Adjust weights to get more tuned results
+                cl_loss = cl_loss / n_test_points
+                cdp_loss = cdp_loss / n_test_points
+                cm4c_loss = cm4c_loss / n_test_points
+                cl_loss_weight = 3.0
+                cdp_loss_weight = 2.0
+                cm4c_loss_weight = 1.0
+                total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
+            
+                # Use the loss to get a reward
+                # The size of this clip determines the size of the reward return space
+                reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
             
             # Visualize airfoil
             if(vis_foil):
