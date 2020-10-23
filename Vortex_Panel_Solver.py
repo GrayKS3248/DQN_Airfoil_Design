@@ -451,7 +451,7 @@ class Vortex_Panel_Solver():
                 
             # If the cp is bad, return a small positive reward
             if not(cp_state):
-                return s2.reshape(2 * self.n_panels_per_surface + 1), 0.5, done
+                return s2.reshape(2 * self.n_panels_per_surface + 1), reward_depreciation * 0.25, done
             else:
                 # Calculate the total weighted loss
                 # Adjust weights to get more tuned results
