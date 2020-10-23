@@ -464,7 +464,7 @@ class Vortex_Panel_Solver():
             if good_cp:
                 reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
             else:
-                reward = 1.0
+                reward = 0.75
             
             # Visualize airfoil
             if(vis_foil):
@@ -563,7 +563,7 @@ class Vortex_Panel_Solver():
                       [self.v_inf_test_points[test_point] * np.sin(self.alpha_test_points[test_point])], 
                       [0.0]])
             cp = self.solve_cp(v_inf)
-            cl, cdp, cm4c = self.solve_cl_cdp_cm4c(v_inf)
+            cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
             
             # Update the performance book
             performance['v_inf'].append(self.v_inf_test_points[test_point])
@@ -577,8 +577,12 @@ class Vortex_Panel_Solver():
             
             # Plot the pressure distribution
             plt.clf
-            plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface))
-            plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface))
+            if cp_state:
+                plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface),c='k')
+                plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface),c='k')
+            else:
+                plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface),c='r')
+                plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface),c='r')
             plt.gca().invert_yaxis()
             title_str = "Cp for Airfoil at Test Point " + str(test_point)
             plt.title(title_str)
