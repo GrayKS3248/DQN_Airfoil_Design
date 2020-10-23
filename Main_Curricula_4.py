@@ -97,7 +97,7 @@ if __name__ == '__main__':
     num_hidden_layers = 2
     num_neurons_in_layer = 128
     clone_interval = 10000
-    alpha = 0.00025 
+    alpha = 0.00030
     gamma = 0.99
     epsilon_start = 0.50
     epsilon_end = 0.10

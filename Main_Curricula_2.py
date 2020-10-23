@@ -80,7 +80,7 @@ if __name__ == '__main__':
     n_panel_per_surface = 10
     n_sets = 1
     n_episodes = 501
-    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) * 2 # In this number of steps, all vertices can be moved from min to max value
+    n_steps = int(24.5 * (2*n_panel_per_surface + 1) * 1.5) # In this number of steps, all vertices can be moved from min to max value
     n_draw = n_steps // 19
     
     # Environment
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     num_hidden_layers = 2
     num_neurons_in_layer = 128
     clone_interval = 10000
-    alpha = 0.00025 
+    alpha = 0.00030 
     gamma = 0.99
     epsilon_start = 0.75
     epsilon_end = 0.10
