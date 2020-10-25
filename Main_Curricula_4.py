@@ -97,7 +97,7 @@ if __name__ == '__main__':
     num_neurons_in_layer = 128
     clone_interval = 10000
     alpha = 0.00025
-    gamma = 0.99
+    gamma = 1.0
     epsilon_start = 0.50
     epsilon_end = 0.10
     epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
