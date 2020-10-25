@@ -27,7 +27,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         n = 1
                 
         # Simulate until episode is done
-        print('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...     |     Total Reward : " + '{:.0f}'.format(total_reward), end="\r")
+        print('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...     |     Total Reward : " + '{:.0f}'.format(total_reward), end="\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\r")
         done = False
         while not done:
             
