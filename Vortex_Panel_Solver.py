@@ -229,10 +229,10 @@ class Vortex_Panel_Solver():
         cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
         
         # Make sure that the pressure distribution on the upper surface does not intersect the pressure distribution on the lower surface
-        ok_cp_distribution = (cp_lower < cp_upper).all()
+        ok_cp_distribution = (cp_upper < cp_lower).all()
         
-        # Make sure that the suction peak is on the first half of the airfoil
-        ok_suction_peak = np.argmin(cp_lower) <= self.n_panels_per_surface // 2
+        # Make sure that the suction peak is on the first third of the airfoil
+        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 3
         
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
@@ -451,6 +451,9 @@ class Vortex_Panel_Solver():
                 
             # If the cp is bad, return a small positive reward
             if not(cp_state):
+                # Visualize airfoil
+                if(vis_foil):
+                    self.visualize_airfoil(n, path=path)
                 return s2.reshape(2 * self.n_panels_per_surface + 1), reward_depreciation * 0.25, done
             else:
                 # Calculate the total weighted loss
@@ -458,8 +461,8 @@ class Vortex_Panel_Solver():
                 cl_loss = cl_loss / n_test_points
                 cdp_loss = cdp_loss / n_test_points
                 cm4c_loss = cm4c_loss / n_test_points
-                cl_loss_weight = 3.0
-                cdp_loss_weight = 2.0
+                cl_loss_weight = 1.0
+                cdp_loss_weight = 1.0
                 cm4c_loss_weight = 1.0
                 total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
             
