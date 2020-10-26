@@ -1,4 +1,5 @@
 import Vortex_Panel_Solver as vps 
+import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,7 +28,9 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         n = 1
                 
         # Simulate until episode is done
-        print('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...     |     Total Reward: " + '{:.0f}'.format(total_reward) + "     |     Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1)), end="\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\r")
+        print('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...     |     Total Reward: " + 
+              '{:.0f}'.format(total_reward) + "     |     Average Reward: " + 
+              '{:03.2f}'.format(total_reward/(total_steps+1)), end="\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\r")
         done = False
         while not done:
             
@@ -43,7 +46,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
             total_steps += 1
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1, reward_depreciation=1.0, path="curricula_3/")
+            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1, reward_depreciation=0.60, path="curricula_3/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
