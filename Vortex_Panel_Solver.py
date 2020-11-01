@@ -3,7 +3,7 @@ Created on Mon Sep 28 14:23:01 2020
 
 @author: Grayson Schaer
 """
-from scipy.signal import find_peaks 
+import scipy
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
@@ -234,6 +234,11 @@ class Vortex_Panel_Solver():
         # Make sure that the suction peak is on the first third of the airfoil
         ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 3
         
+        # Make sure that the pressure distribution on both surfaces has only 1 peak
+        n_peaks_upper = len(scipy.signal.find_peaks(-1.0*cp_upper)[0])
+        n_peaks_lower = len(scipy.signal.find_peaks(-1.0*cp_lower)[0])
+        ok_cp_shape =(n_peaks_upper == 1 and n_peaks_lower == 1)
+        
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
 
@@ -269,7 +274,7 @@ class Vortex_Panel_Solver():
         cl = cn * np.cos(alpha) - ca * np.sin(alpha)
         cdp = cn * np.sin(alpha) + ca * np.cos(alpha)
         
-        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak)
+        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape)
 
     # converts discrete action, a, into an airfoil transforming action
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
@@ -318,8 +323,8 @@ class Vortex_Panel_Solver():
         # Determine airfoil spikeness
         y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
         y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        n_peaks_upper = np.size(find_peaks(y_coords_upper)[0])
-        n_peaks_lower = np.size(find_peaks(-1.0*y_coords_lower)[0])
+        n_peaks_upper = len(scipy.signal.find_peaks(y_coords_upper)[0])
+        n_peaks_lower = len(scipy.signal.find_peaks(-1.0*y_coords_lower)[0])
         
         # Determine max flow turning angle on upper and lower surfaces (excluding LE and TE)
         surface_tan_new = np.array([self.surface_normal[1,:], -1.0 * self.surface_normal[0,:]])
@@ -353,8 +358,8 @@ class Vortex_Panel_Solver():
             return s1, -1.0, done
         
         # If the airfoil is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 2 peaks per surface
-        elif ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
+        # Too spikey is defined as having more than a 1 peak per surface
+        elif ((n_peaks_upper >= 2) or (n_peaks_lower >= 2)):
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -580,13 +585,13 @@ class Vortex_Panel_Solver():
             performance['cm4c_design'].append(self.cm4c_test_points[test_point])
             
             # Plot the pressure distribution
-            plt.clf
+            plt.clf()
             if cp_state:
-                plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface),c='k')
-                plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface),c='k')
+                plt.scatter(x_coords, cp,c='k')
+                plt.plot(x_coords, cp,c='k')
             else:
-                plt.scatter(x_coords, cp.reshape(2*self.n_panels_per_surface),c='r')
-                plt.plot(x_coords, cp.reshape(2*self.n_panels_per_surface),c='r')
+                plt.scatter(x_coords, cp,c='r')
+                plt.plot(x_coords, cp,c='r')
             plt.gca().invert_yaxis()
             title_str = "Cp for Airfoil at Test Point " + str(test_point)
             plt.title(title_str)
