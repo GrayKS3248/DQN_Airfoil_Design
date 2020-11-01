@@ -16,7 +16,8 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
     total_steps = 0
     percent_complete = 0.0
     total_reward = 0.0
-    for curr_episode in range(n_episodes):
+    curr_episode = 0
+    while total_reward/(total_steps+1) <= 0.80 and curr_episode < n_episodes:
         
         # Initialize simulation
         s1 = env.reset()
@@ -59,6 +60,9 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
             
         # After an episode is done, update the logbook
         agent.end_episode()
+        
+        # Iterate the episode count
+        curr_episode = curr_episode + 1
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent(keep_NN=True)
