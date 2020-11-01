@@ -3,7 +3,7 @@ Created on Mon Sep 28 14:23:01 2020
 
 @author: Grayson Schaer
 """
-import scipy
+from scipy.signal import find_peaks
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
@@ -235,8 +235,8 @@ class Vortex_Panel_Solver():
         ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 3
         
         # Make sure that the pressure distribution on both surfaces has only 1 peak
-        n_peaks_upper = len(scipy.signal.find_peaks(-1.0*cp_upper)[0])
-        n_peaks_lower = len(scipy.signal.find_peaks(-1.0*cp_lower)[0])
+        n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
+        n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
         ok_cp_shape =(n_peaks_upper == 1 and n_peaks_lower == 1)
         
         # Get and split x/c coords
@@ -323,8 +323,8 @@ class Vortex_Panel_Solver():
         # Determine airfoil spikeness
         y_coords_upper = (s2[0][0:self.n_panels_per_surface+1])[::-1]
         y_coords_lower = (s2[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        n_peaks_upper = len(scipy.signal.find_peaks(y_coords_upper)[0])
-        n_peaks_lower = len(scipy.signal.find_peaks(-1.0*y_coords_lower)[0])
+        n_peaks_upper = len(find_peaks(y_coords_upper)[0])
+        n_peaks_lower = len(find_peaks(-1.0*y_coords_lower)[0])
         
         # Determine max flow turning angle on upper and lower surfaces (excluding LE and TE)
         surface_tan_new = np.array([self.surface_normal[1,:], -1.0 * self.surface_normal[0,:]])

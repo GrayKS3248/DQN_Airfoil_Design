@@ -28,9 +28,8 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
         n = 1
                 
         # Simulate until episode is done
-        print('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...     |     Total Reward: " + 
-              '{:.0f}'.format(total_reward) + "     |     Average Reward: " + 
-              '{:03.2f}'.format(total_reward/(total_steps+1)), end="\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\r")
+        print_str = '{:03.2f}'.format(100.0 * percent_complete) + "% Complete... | Total Reward: " + '{:.0f}'.format(total_reward) + " | Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1))
+        print(print_str, end="".join(['\b']*len(2*print_str))+"\r", flush=True)
         done = False
         while not done:
             
@@ -64,7 +63,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent(keep_NN=True)
     env.visualize_cp_save_performance(path="curricula_5/")
-    print("100.00% Complete!     |     Total Reward : " + '{:.0f}'.format(total_reward))
+    print("100.00% Complete!    |    Total Reward: " + '{:.0f}'.format(total_reward) + "    |    Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1)))
     
     return agent
 
