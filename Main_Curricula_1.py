@@ -7,7 +7,7 @@ import math
 import pickle
 
 # Defines what a set of episodes is
-def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
+def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=0.80):
             
     # Start Training
     print("Training DQN agent " + str(curr_set) + " of " + str(n_sets-1) + "...")  
@@ -17,7 +17,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
     percent_complete = 0.0
     total_reward = 0.0
     curr_episode = 0
-    while total_reward/(total_steps+1) <= 0.80 and curr_episode < n_episodes:
+    while total_reward/(total_steps+1) <= target_avg_reward and curr_episode < n_episodes:
         
         # Initialize simulation
         s1 = env.reset()
