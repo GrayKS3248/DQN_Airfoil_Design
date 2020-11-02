@@ -33,6 +33,9 @@ class Vortex_Panel_Solver():
         self.cdp_test_points = cdp_test_points
         self.cm4c_test_points = cm4c_test_points
         
+        self.num_j = np.reshape(np.linspace(1,0,self.precision),(10,1))
+        self.num_jp1 = np.reshape(np.linspace(0,1,self.precision),(10,1))
+        
         # Create upper surface that is legal
         self.upper_surface_x = np.linspace(1,0,self.n_panels_per_surface+1).reshape(1, self.n_panels_per_surface+1)
         upper_surface_y = np.zeros((1,self.n_panels_per_surface+1))
@@ -97,46 +100,49 @@ class Vortex_Panel_Solver():
         return (product / product_norm)
     
     # Solves the integral required to populate linear system to solve for gamma for each panel (positive circulation into page)
-    # @param pj - jth panel point written in 3D coords np.array([x, y, z])
-    # @param pjp1 - j+1th panel point written in 3D coords np.array([x, y, z])
-    # @param cp - control point written in 3D coords np.array([x, y, z])
-    # @param cp_normal - the normal vector of the control point in form np.array([x, y, z])
+    # @param pj - panel points set
+    # @param pjp1 - j+1th panel points set
+    # @param cp - control point written in 2D coords np.array([[[x], [y]]])
+    # @param cp_normal - the normal vector of the control point in form np.array([x, y])
     # @return integral in form vn_prime_j, vn_prime_jp1, vx_prime_jp1, vy_prime_j, vy_prime_jp1
-    def solve_integral(self, pj, pjp1, cp, cp_normal):
+    def solve_integral(self, pj_set, pjp1_set, cp, cp_normal):
         # Panel parameters
-        panel_length = np.linalg.norm(pjp1 - pj)
+        panel_length = np.linalg.norm(pj_set - pjp1_set,axis=0)
         
         # Parameters used for integration
-        s = np.linspace(pj, pjp1, self.precision)
+        s1 = np.linspace(pj_set,pjp1_set,self.precision,axis=0)
         s_norm = np.linspace(0.0, panel_length, self.precision)
         
         # Calculate the radius to control point and its square norm
-        r = cp - s
-        r_norm_sq = np.einsum('ij,ij->i', r, r)
+        r1 = cp - s1
+        r_norm_sq = np.sum(r1**2,axis=1)
         
         # Setup integrals
         den = 2 * np.pi * r_norm_sq
-        num_j = np.linspace(1,0,self.precision)
-        num_jp1 = np.linspace(0,1,self.precision)
-        minus_rx = -1.0 * r[:,0]
-        ry = r[:,1]
+        minus_rx = -1.0 * r1[:,0,:]
+        ry = r1[:,1,:]
         
         # solve integrals
-        vx_prime_j = np.trapz(ry * num_j / den, x=s_norm)
-        vx_prime_jp1 = np.trapz(ry * num_jp1 / den, x=s_norm)
-        vy_prime_j = np.trapz(minus_rx * num_j / den, x=s_norm)
-        vy_prime_jp1 = np.trapz(minus_rx * num_jp1 / den, x=s_norm)
+        vx_prime_j = np.trapz(ry * (self.num_j / den), x=s_norm, axis=0)
+        vx_prime_jp1 = np.trapz(ry * (self.num_jp1 / den), x=s_norm, axis=0)
+        vy_prime_j = np.trapz(minus_rx * (self.num_j / den), x=s_norm, axis=0)
+        vy_prime_jp1 = np.trapz(minus_rx * (self.num_jp1 / den), x=s_norm, axis=0)
 
         #format normal vector
         nx = cp_normal[0]
         ny = cp_normal[1]
         
-        # Format outpout
+        # Calculate normal velocities
         vn_prime_j = nx * vx_prime_j + ny * vy_prime_j
         vn_prime_jp1 = nx * vx_prime_jp1 + ny * vy_prime_jp1
         
+        # Format output
+        vn_prime = np.append(vn_prime_j, 0.0) + np.insert(vn_prime_jp1,0,0.0)
+        vx_prime = np.append(vx_prime_j, 0.0) + np.insert(vx_prime_jp1,0,0.0)
+        vy_prime = np.append(vy_prime_j, 0.0) + np.insert(vy_prime_jp1,0,0.0)
+        
         # Combine results
-        return vn_prime_j, vn_prime_jp1, vx_prime_j, vx_prime_jp1, vy_prime_j, vy_prime_jp1
+        return vn_prime, vx_prime, vy_prime
             
     #Solves for the A matrices
     # @return the A matrix that solves the normal vel mag, the A matrix that solves the vx vel mag, and the A matrix that solves the vy vel mag
@@ -149,11 +155,9 @@ class Vortex_Panel_Solver():
         
         # Get the panel vertices
         pj_set = np.array([self.surface_x[0,:][:-1], 
-                           self.surface_y[0,:][:-1], 
-                           np.zeros(2 * self.n_panels_per_surface)])
+                           self.surface_y[0,:][:-1]])
         pjp1_set = np.array([np.roll(self.surface_x[0,:],-1)[:-1], 
-                             np.roll(self.surface_y[0,:],-1)[:-1], 
-                             np.zeros(2 * self.n_panels_per_surface)])
+                             np.roll(self.surface_y[0,:],-1)[:-1]])
         
         # Get the control points
         control_point_set = (pj_set + pjp1_set) / 2
@@ -162,25 +166,16 @@ class Vortex_Panel_Solver():
         for curr_control_point in range(2 * self.n_panels_per_surface):
             
             # Get the control point and its normal on the current panel
-            control_point = control_point_set[:,curr_control_point]
-            control_point_normal = self.surface_normal[:,curr_control_point]
+            control_point = np.reshape(control_point_set[:,curr_control_point],(1,2,1))
+            control_point_normal = self.surface_normal[:,curr_control_point][0:2]
             
-            # Step through all inducing panels
-            for curr_inducing_panel in range(2 * self.n_panels_per_surface):
+            # Solve the integral
+            vn_prime, vx_prime, vy_prime = self.solve_integral(pj_set, pjp1_set, control_point, control_point_normal)
                 
-                # Solve the integral
-                vn_prime_j, vn_prime_jp1, vx_prime_j, vx_prime_jp1, vy_prime_j, vy_prime_jp1 = self.solve_integral(pj_set[:,curr_inducing_panel], 
-                                                               pjp1_set[:,curr_inducing_panel], 
-                                                               control_point, 
-                                                               control_point_normal)
-                
-                # Format and update A
-                A[curr_control_point][curr_inducing_panel] += vn_prime_j
-                A[curr_control_point][curr_inducing_panel + 1] += vn_prime_jp1
-                A_vx[curr_control_point][curr_inducing_panel] += vx_prime_j
-                A_vx[curr_control_point][curr_inducing_panel + 1] += vx_prime_jp1
-                A_vy[curr_control_point][curr_inducing_panel] += vy_prime_j
-                A_vy[curr_control_point][curr_inducing_panel + 1] += vy_prime_jp1
+            # Format and update A
+            A[curr_control_point][:] = vn_prime
+            A_vx[curr_control_point][:] = vx_prime
+            A_vy[curr_control_point][:] = vy_prime
                 
         # Apply the kutta condition
         A[2 * self.n_panels_per_surface][0] = 1.0
@@ -234,10 +229,10 @@ class Vortex_Panel_Solver():
         # Make sure that the suction peak is on the first third of the airfoil
         ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 3
         
-        # Make sure that the pressure distribution on both surfaces has only 1 peak
+        # Make sure that the pressure distribution on both surfaces no more than 2 peaks
         n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
         n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
-        ok_cp_shape =(n_peaks_upper == 1 and n_peaks_lower == 1)
+        ok_cp_shape =(n_peaks_upper <= 2 and n_peaks_lower <= 2)
         
         # Get and split x/c coords
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
@@ -358,7 +353,7 @@ class Vortex_Panel_Solver():
             return s1, -1.0, done
         
         # If the airfoil is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 1 peak per surface
+        # Too spikey is defined as having more than a 2 peaks per surface
         elif ((n_peaks_upper >= 2) or (n_peaks_lower >= 2)):
             # Update the stored airfoil
             self.surface_y = s2
