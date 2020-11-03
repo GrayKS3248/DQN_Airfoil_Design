@@ -31,12 +31,14 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         n = 1
                 
         # Simulate until episode is done
-        print_str = ('{:03.2f}'.format(100.0 * percent_complete) + "% Complete... | Episode: " + str(curr_episode) + 
-            " | Total Reward: " + '{:.0f}'.format(total_reward) + 
-            " | Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1)) + 
-            " | Episode Reward: " + '{:03.2f}'.format(episode_reward) + 
-            " | Episode Delta: " + '{:03.2f}'.format(episode_reward - prev_episode_reward))
-        print(print_str, end="".join(['\b']*len(2*print_str))+"\r", flush=True)
+        print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
+            ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+            ("| Total Reward: " + '{:.0f}'.format(total_reward)).ljust(24) + 
+            ("| Average Reward: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(31) + 
+            ("| Episode Reward: " + ('{:.0f}'.format(episode_reward))).ljust(23) + 
+            ("| Episode Delta: " + '{:.0f}'.format(episode_reward - prev_episode_reward)).ljust(22) + 
+            "|")
+        print(print_str, end="\r", flush=True)
         done = False
         prev_episode_reward = episode_reward
         episode_reward = total_reward
@@ -76,11 +78,13 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent(keep_NN=True)
     env.visualize_cp_save_performance(path="curricula_1/")
-    print_str = ("100.00% Complete!    |    Episode: " + str(curr_episode) + 
-        "    |    Total Reward: " + '{:.0f}'.format(total_reward) + 
-        "    |    Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1))+ 
-        "    |    Episode Reward: " + '{:03.2f}'.format(episode_reward) + 
-        "    |    Episode Delta: " + '{:03.2f}'.format(episode_reward - prev_episode_reward))
+    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
+        ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+        ("| Total Reward: " + '{:.0f}'.format(total_reward)).ljust(24) + 
+        ("| Average Reward: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(31) + 
+        ("| Episode Reward: " + ('{:.0f}'.format(episode_reward))).ljust(23) + 
+        ("| Episode Delta: " + '{:.0f}'.format(episode_reward - prev_episode_reward)).ljust(21) + 
+        "|")
     print(print_str)
     return agent
 
@@ -98,8 +102,8 @@ if __name__ == '__main__':
     n_panel_per_surface = 16
     target_avg_reward = 0.80
     n_sets = 1
-    n_episodes = 2001
-    max_episodes = 5000
+    n_episodes = 25
+    max_episodes = 30
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
     n_draw = n_steps // 19
     
