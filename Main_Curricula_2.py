@@ -7,45 +7,74 @@ import math
 import pickle
 
 # Defines what a set of episodes is
-def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
+def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=0.80, max_episodes=5000):
             
     # Start Training
-    print("Training DQN agent " + str(curr_set) + " of " + str(n_sets-1) + "...")  
+    print("Training DQN agent " + str(curr_set+1) + " of " + str(n_sets) + "...")  
       
     # Train agent over n_episodes of episodes
+    exit_cond = 0
     total_steps = 0
     percent_complete = 0.0
     total_reward = 0.0
-    for curr_episode in range(n_episodes):
+    episode_reward = 0.0
+    curr_episode = 0
+    running_reward = [0.0]*5
+    visualization_episode = False
+    while True:
         
         # Initialize simulation
         s1 = env.reset()
         agent.add_state_to_sequence(s1)
-        
-        # Visualization parameters
-        if (curr_episode == n_episodes - 1):
-            env.visualize_airfoil(0, path="curricula_2/")
-        n = 1
                 
+        # Display parameters
+        running_reward.append(episode_reward)
+        running_reward.pop(0)
+        episode_reward = total_reward
+        
+        # Termination conditions
+        n = 0
+        if (curr_episode >= max_episodes):
+            exit_cond = 1
+            visualization_episode = True
+            env.visualize_airfoil(0, path="curricula_2/")
+        if (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0):
+            exit_cond = 2
+            visualization_episode = True
+            env.visualize_airfoil(0, path="curricula_2/")
+        if (total_reward/(total_steps+1) >= target_avg_reward) and (curr_episode >= n_episodes):
+            exit_cond = 3
+            visualization_episode = True
+            env.visualize_airfoil(0, path="curricula_2/")
+        
+        # User readout
+        print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
+            ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+            ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
+            ("| Avg R: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
+            ("| Episode R: " + ('{:.0f}'.format(running_reward[-1]))).ljust(20) + 
+            ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
+            "|")
+        print(print_str, end="\r", flush=True)
+        
         # Simulate until episode is done
-        print_str = '{:03.2f}'.format(100.0 * percent_complete) + "% Complete... | Total Reward: " + '{:.0f}'.format(total_reward) + " | Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1))
-        print(print_str, end="".join(['\b']*len(2*print_str))+"\r", flush=True)
         done = False
         while not done:
             
             # With probability e select a random action a1, otherwise select a1 = argmax_a Q(s1, a; theta)
             a1 = agent.get_action(s1)
             
-            # Determine wether to draw foil or not
-            vis_foil = (n % n_draw == 0) and (curr_episode == n_episodes - 1)
-            n = n + 1 
-            
             # Calculate reward depreciation
             percent_complete = (total_steps) / (n_episodes * env.max_num_steps)
             total_steps += 1
             
+            # Determine wether to draw foil or not
+            vis_foil = (n % n_draw == 0) and visualization_episode
+            if visualization_episode:
+                n = n + 1 
+            
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n-1, reward_depreciation=1.0, path="curricula_2/")
+            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n, reward_depreciation=1.5, path="curricula_2/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
@@ -58,13 +87,32 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent):
             s1 = s2
             
         # After an episode is done, update the logbook
+        episode_reward = total_reward - episode_reward
         agent.end_episode()
+        
+        # Termination
+        if visualization_episode == True:
+            break
+        else:
+            curr_episode = curr_episode + 1
 
     # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
     agent.terminate_agent(keep_NN=True)
     env.visualize_cp_save_performance(path="curricula_2/")
-    print("100.00% Complete!    |    Total Reward: " + '{:.0f}'.format(total_reward) + "    |    Average Reward: " + '{:03.2f}'.format(total_reward/(total_steps+1)))
-    
+    print_str = (("100.00% Complete...").ljust(24) + 
+            ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+            ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
+            ("| Avg R: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
+            ("| Episode R: " + ('{:.0f}'.format(running_reward[-1]))).ljust(20) + 
+            ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
+            "|")
+    print(print_str)
+    if exit_cond==1:
+        print("EXIT: Maximum number of episodes reached.")
+    elif exit_cond==2:
+        print("EXIT: Negative learning detected.")
+    elif exit_cond==3:
+        print("EXIT: Target episodes and average reached.")
     return agent
 
 
@@ -78,11 +126,13 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 10
+    n_panel_per_surface = 16
+    target_avg_reward = 0.80
     n_sets = 1
-    n_episodes = 1501
+    n_episodes = 2000
+    max_episodes = 5000
     n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
-    n_draw = n_steps // 19
+    n_draw = n_steps // 99
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -91,7 +141,7 @@ if __name__ == '__main__':
     state_dimension = env.state_dimension
     
     # Agent parameters
-    max_data_set_size = 1000000
+    max_data_set_size = 100000
     start_data_set_size = 1000
     sequence_size = 1
     minibatch_size = 32
@@ -139,7 +189,7 @@ if __name__ == '__main__':
     start = time.time()
     for curr_set in range(n_sets):
         # Run a set of episodes
-        agent = run_set(curr_set, n_sets, n_episodes, n_draw, env, agent)
+        agent = run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=target_avg_reward, max_episodes=max_episodes)
     
     elapsed = time.time() - start
     print("Simulation took:", f'{elapsed:.3f}', "seconds.")
