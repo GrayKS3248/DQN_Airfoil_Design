@@ -604,5 +604,24 @@ class Vortex_Panel_Solver():
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
         save_str = path + "airfoils/airfoil_" + str(n) + ".png"
-        plt.savefig(save_str, dpi = 100)
+        plt.savefig(save_str, dpi = 200)
         plt.close()
+        
+    # Visualizes the shape of the airfoil over a sequence
+    # @param n_sequence - number label of airfoil
+    def visualize_airfoil_sequence(self, surface_x, surface_y, n_seq, path=""):
+        for curr_airfoil in range(len(n_seq)):
+            plt.clf
+            plt.scatter(surface_x[curr_airfoil].squeeze(), surface_y[curr_airfoil].squeeze())
+            plt.plot(surface_x[curr_airfoil].squeeze(), surface_y[curr_airfoil].squeeze())
+            title_str = "Airfoil " + str(n_seq[curr_airfoil])
+            plt.title(title_str)
+            plt.xlabel("x/c [unitless]")
+            plt.ylabel("y/c [unitless]")
+            plt.xlim([0,1])
+            plt.ylim([-0.5,0.5])
+            fig = plt.gcf()
+            fig.set_size_inches(10, 5)
+            save_str = path + "airfoils/airfoil_" + str(n_seq[curr_airfoil]) + ".png"
+            plt.savefig(save_str, dpi = 200)
+            plt.close()

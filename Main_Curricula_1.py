@@ -22,7 +22,12 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     running_reward = [0.0]*10
     reward_history = []
     running_average = [0.0]*100
-    visualization_episode = False
+    best_airfoil_reward = 0.0
+    best_surface_y_sequence = []
+    surface_x_sequence = []
+    surface_y_sequence = []
+    n_sequence = []
+    end_episode = False
     while True:
         
         # Initialize simulation
@@ -41,16 +46,13 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         n = 0
         if (curr_episode >= max_episodes):
             exit_cond = 1
-            visualization_episode = True
-            env.visualize_airfoil(0, path="curricula_1/")
+            end_episode = True
         if ((curr_episode >= n_episodes) and (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0)):
             exit_cond = 2
-            visualization_episode = True
-            env.visualize_airfoil(0, path="curricula_1/")
+            end_episode = True
         if ((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes):
             exit_cond = 3
-            visualization_episode = True
-            env.visualize_airfoil(0, path="curricula_1/")
+            end_episode = True
         
         # User readout
         print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
@@ -64,22 +66,22 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         
         # Simulate until episode is done
         done = False
+        n = 0
         while not done:
+            
+            # Save the best surfaces
+            if n % n_draw == 0 or n==env.max_num_steps-1:
+                if curr_episode == 0:
+                    surface_x_sequence.append(env.surface_x)
+                    n_sequence.append(n)
+                surface_y_sequence.append(env.surface_y)
+            n = n + 1 
             
             # With probability e select a random action a1, otherwise select a1 = argmax_a Q(s1, a; theta)
             a1 = agent.get_action(s1)
             
-            # Calculate reward depreciation
-            percent_complete = (total_steps) / (n_episodes * env.max_num_steps)
-            total_steps += 1
-            
-            # Determine wether to draw foil or not
-            vis_foil = (n % n_draw == 0) and visualization_episode
-            if visualization_episode:
-                n = n + 1 
-            
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, vis_foil=vis_foil, n=n, reward_depreciation=2.0, path="curricula_1/")
+            (s2, r, done) = env.step(a1, n=n, reward_depreciation=2.0, path="curricula_1/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
@@ -91,19 +93,43 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             # Update state and action
             s1 = s2
             
-        # After an episode is done, update the logbook
+            # Calculate completedness
+            percent_complete = (total_steps) / (n_episodes * env.max_num_steps)
+            total_steps += 1
+            
+        # After an episode calculate the reward and whether or not to keep the save airfoil sequence
         episode_reward = total_reward - episode_reward
+        if episode_reward >= best_airfoil_reward:
+            best_airfoil_reward = episode_reward
+            best_surface_y_sequence = surface_y_sequence
+        surface_y_sequence = []
+        
+        # After an episode, update the agent's logs
         agent.end_episode()
         
-        # Termination
-        if visualization_episode == True:
+        # Termination check
+        if end_episode:
             break
         else:
             curr_episode = curr_episode + 1
 
-    # Onces an episode set is complete, update the logbook, terminate the current log, draw the cp dist
+    # Onces an episode set is complete, update the logbook, terminate the current log
     agent.terminate_agent(keep_NN=True)
+    
+    # Once an episode set is complete, draw the best cp distribution and generate results
+    env.surface_x = surface_x_sequence[-1]
+    env.surface_y = best_surface_y_sequence[-1]
+    x_upper = env.surface_x[:,0:env.n_panels_per_surface+1]
+    x_lower = env.surface_x[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    y_upper = env.surface_y[:,0:env.n_panels_per_surface+1]
+    y_lower = env.surface_y[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    env.surface_normal = np.append(env.get_normal(x_upper, y_upper), env.get_normal(x_lower, y_lower), axis=1)
     env.visualize_cp_save_performance(path="curricula_1/")
+    
+    # Visualize the best airfoil sequence
+    env.visualize_airfoil_sequence(surface_x_sequence, best_surface_y_sequence, n_sequence, path="curricula_1/")
+    
+    # Print the final training results
     print_str = (("100.00% Complete...").ljust(24) + 
             ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
