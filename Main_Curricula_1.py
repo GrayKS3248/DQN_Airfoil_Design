@@ -130,12 +130,12 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 14
-    target_avg_reward = 0.80
+    n_panel_per_surface = 10
+    target_avg_reward = 0.50
     n_sets = 1
     n_episodes = 2000
     max_episodes = 3000
-    n_steps = 30 * (2*n_panel_per_surface + 1)
+    n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
