@@ -19,7 +19,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     total_reward = 0.0
     episode_reward = 0.0
     curr_episode = 0
-    running_reward = [0.0]*5
+    running_reward = [0.0]*10
     visualization_episode = False
     while True:
         
@@ -126,13 +126,13 @@ if __name__ == '__main__':
     cm4c_test_points = np.array([-0.0525, -0.0482, -0.0566, -0.0497, -0.0440, -0.0378])
 
     # Simulation parameters
-    n_panel_per_surface = 16
+    n_panel_per_surface = 14
     target_avg_reward = 0.80
     n_sets = 1
-    n_episodes = 2000
-    max_episodes = 5000
-    n_steps = int(24.5 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
-    n_draw = n_steps // 99
+    n_episodes = 4000
+    max_episodes = 6000
+    n_steps = int(12.25 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
+    n_draw = n_steps // 19
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, v_inf_test_points, alpha_test_points,
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     state_dimension = env.state_dimension
     
     # Agent parameters
-    max_data_set_size = 100000
+    max_data_set_size = 1000000
     start_data_set_size = 1000
     sequence_size = 1
     minibatch_size = 32
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     gamma = 1.0
     epsilon_start = 0.75
     epsilon_end = 0.10
-    epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
+    epsilon_depreciation_factor = math.pow(epsilon_end,(2.5 / (n_episodes*n_steps - start_data_set_size)))
     
     # Load previous agent and reset its epsilon parameters and logbook
     with open("curricula_1/results/outputs", "rb") as f:
