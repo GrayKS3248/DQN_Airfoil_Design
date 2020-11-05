@@ -21,6 +21,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     curr_episode = 0
     running_reward = [0.0]*10
     reward_history = []
+    running_average = [0.0]*100
     visualization_episode = False
     while True:
         
@@ -31,8 +32,10 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         # Display parameters
         running_reward.append(episode_reward)
         running_reward.pop(0)
-        episode_reward = total_reward
         reward_history.append(running_reward[-1])
+        running_average.append(episode_reward / env.max_num_steps)
+        running_average.pop(0)
+        episode_reward = total_reward
         
         # Termination conditions
         n = 0
@@ -44,7 +47,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             exit_cond = 2
             visualization_episode = True
             env.visualize_airfoil(0, path="curricula_1/")
-        if (total_reward/(total_steps+1) >= target_avg_reward) and (curr_episode >= n_episodes):
+        if ((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes):
             exit_cond = 3
             visualization_episode = True
             env.visualize_airfoil(0, path="curricula_1/")
@@ -53,7 +56,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
             ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-            ("| Avg R: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
+            ("| Avg R: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
             ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
             ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
             "|")
@@ -104,7 +107,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     print_str = (("100.00% Complete...").ljust(24) + 
             ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-            ("| Avg R: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
+            ("| Avg R: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
             ("| Episode R: " + ('{:.0f}'.format(running_reward[-1]))).ljust(20) + 
             ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
             "|")
