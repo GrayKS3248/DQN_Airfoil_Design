@@ -20,6 +20,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     episode_reward = 0.0
     curr_episode = 0
     running_reward = [0.0]*10
+    reward_history = []
     visualization_episode = False
     while True:
         
@@ -31,6 +32,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         running_reward.append(episode_reward)
         running_reward.pop(0)
         episode_reward = total_reward
+        reward_history.append(running_reward[-1])
         
         # Termination conditions
         n = 0
@@ -38,7 +40,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             exit_cond = 1
             visualization_episode = True
             env.visualize_airfoil(0, path="curricula_1/")
-        if (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0):
+        if ((curr_episode >= n_episodes) and (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0)):
             exit_cond = 2
             visualization_episode = True
             env.visualize_airfoil(0, path="curricula_1/")
@@ -52,7 +54,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
             ("| Avg R: " + '{:.2f}'.format(total_reward/(total_steps+1)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
-            ("| Episode R: " + ('{:.0f}'.format(running_reward[-1]))).ljust(20) + 
+            ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
             ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
             "|")
         print(print_str, end="\r", flush=True)
@@ -113,7 +115,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         print("EXIT: Negative learning detected.")
     elif exit_cond==3:
         print("EXIT: Target episodes and average reached.")
-    return agent
+    return agent, reward_history
 
 
 if __name__ == '__main__':
@@ -128,9 +130,9 @@ if __name__ == '__main__':
     n_panel_per_surface = 14
     target_avg_reward = 0.80
     n_sets = 1
-    n_episodes = 4000
-    max_episodes = 6000
-    n_steps = int(12.25 * (2*n_panel_per_surface + 1)) # In this number of steps, all vertices can be moved from min to max value
+    n_episodes = 2000
+    max_episodes = 3000
+    n_steps = 30 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
@@ -162,7 +164,7 @@ if __name__ == '__main__':
     start = time.time()
     for curr_set in range(n_sets):
         # Run a set of episodes
-        agent = run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=target_avg_reward, max_episodes=max_episodes)
+        agent, reward_history = run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=target_avg_reward, max_episodes=max_episodes)
     
     elapsed = time.time() - start
     print("Simulation took:", f'{elapsed:.3f}', "seconds.")
@@ -203,6 +205,15 @@ if __name__ == '__main__':
     plt.xlabel('Simulation Step')
     plt.ylabel('Total Reward')
     plt.savefig('curricula_1/results/rwd_cur.png', dpi = 200)
+    
+    # plot learning curve
+    plt.clf()
+    title_str = "DQN Learning Curve: \u03B1 = " + str(alpha) + ", \u03B3 = " + str(gamma) + ", \u03B5 = " + str(epsilon_start) + " → " + str(epsilon_end)
+    plt.title(title_str)
+    plt.plot([*range(len(reward_history))], reward_history)
+    plt.xlabel('Episode')
+    plt.ylabel('Reward Per Episode')
+    plt.savefig('curricula_1/results/learn_cur.png', dpi = 200)
     
     # plot loss curve
     plt.clf()

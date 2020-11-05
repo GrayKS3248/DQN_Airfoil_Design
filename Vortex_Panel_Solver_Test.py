@@ -297,10 +297,10 @@ class Vortex_Panel_Solver():
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 2
     # @return the airfoil transforming action set in form np.array(2 * n_panels_per_surface,)
     def a_to_action(self,a):
-        # Action set can either move a vertex up by 10% or down by 10%
+        # Action set can either move a vertex up or down by y/c = 0.01
         # There are 2*n_panels_per_surface + 1 vertices, with 2*n_panels_per_surface alterable vertices
         # Therefore we must limit an airfoil transforming action set to alter only one vertex at a time
-        adder = -0.02 * (1 - a % 2) + 0.02 * (a % 2)
+        adder = -0.01 * (1 - a % 2) + 0.01 * (a % 2)
         vertex = a // 2
         if vertex >= self.n_panels_per_surface:
             vertex += 1
@@ -526,7 +526,6 @@ class Vortex_Panel_Solver():
         
         # Create a performance book
         performance = {
-                'v_inf': [],
                 'alpha': [],
                 'cl': [],
                 'cdp': [],
@@ -540,17 +539,14 @@ class Vortex_Panel_Solver():
         x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][:-1].reshape(2*self.n_panels_per_surface)
         
         # Step through all the test points
-        for test_point in range(np.size(self.v_inf_test_points)):
+        for test_point in range(np.size(self.alpha_test_points)):
             
             # Get the distribution and performance parameters
-            v_inf = np.array([[self.v_inf_test_points[test_point] * np.cos(self.alpha_test_points[test_point])], 
-                      [self.v_inf_test_points[test_point] * np.sin(self.alpha_test_points[test_point])], 
-                      [0.0]])
+            v_inf = np.array([np.cos(self.alpha_test_points[test_point]), np.sin(self.alpha_test_points[test_point])])
             cp = self.solve_cp(v_inf)
             cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
             
             # Update the performance book
-            performance['v_inf'].append(self.v_inf_test_points[test_point])
             performance['alpha'].append(self.alpha_test_points[test_point])
             performance['cl'].append(cl)
             performance['cdp'].append(cdp)
@@ -581,12 +577,12 @@ class Vortex_Panel_Solver():
             
         # Format data for saving
         performance_data = [{key : value[i] for key, value in performance.items()} 
-                           for i in range(np.size(self.v_inf_test_points))]
+                           for i in range(np.size(self.alpha_test_points))]
             
         # Save the performance results as .csv
         open_str = path + "results/performance.csv"
         with open(open_str, 'w', newline='') as csvfile:
-            csv_columns = ['v_inf','alpha','cl','cdp','cm4c','cl_design','cdp_design','cm4c_design']
+            csv_columns = ['alpha','cl','cdp','cm4c','cl_design','cdp_design','cm4c_design']
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for data in performance_data:
