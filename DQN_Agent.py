@@ -149,6 +149,18 @@ class DQN_Agent():
             }
     
     
+    # Copies an old agent network to the current agent
+    # @ param copy - the agent whose parameters are to be copied
+    def copy_agent(self, copy_agent):
+        # Initialze the NN used to estimate Q(s,a) and the optimizer used for gradient descent
+        self.Q_Network = copy.deepcopy(copy_agent.Q_Network)
+        self.opt = torch.optim.Adam(self.Q_Network.parameters() , lr=self.alpha)
+        self.loss_fn = torch.nn.MSELoss()
+            
+        # Initialize the NN used to provide the target for Q improvement
+        self.Q_Target_Network = copy.deepcopy(self.Q_Network)
+        self.steps_since_reset = 0
+    
     # Adds a state to the state sequence
     # @param s - the state to be appended to the state sequence
     def add_state_to_sequence(self, s):

@@ -37,7 +37,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         # Display parameters
         running_reward.append(episode_reward)
         running_reward.pop(0)
-        reward_history.append(running_reward[-1])
+        reward_history.append((sum(running_average)/len(running_average)))
         running_average.append(episode_reward / env.max_num_steps)
         running_average.pop(0)
         episode_reward = total_reward
@@ -58,9 +58,10 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
             ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-            ("| Avg R: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
+            ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
             ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
-            ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
+            ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
+            ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
             "|")
         print(print_str, end="\r", flush=True)
         
@@ -130,13 +131,14 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     env.visualize_airfoil_sequence(surface_x_sequence, best_surface_y_sequence, n_sequence, path="curricula_1/")
     
     # Print the final training results
-    print_str = (("100.00% Complete...").ljust(24) + 
-            ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
-            ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-            ("| Avg R: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(23) + 
-            ("| Episode R: " + ('{:.0f}'.format(running_reward[-1]))).ljust(20) + 
-            ("| Run Avg: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
-            "|")
+    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
+        ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+        ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
+        ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
+        ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
+        ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
+        ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
+        "|")
     print(print_str)
     if exit_cond==1:
         print("EXIT: Maximum number of episodes reached.")
@@ -157,7 +159,7 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 0.50
+    target_avg_reward = 1.0
     n_sets = 1
     n_episodes = 2000
     max_episodes = 3000
@@ -180,9 +182,10 @@ if __name__ == '__main__':
     clone_interval = 10000
     alpha = 0.00025
     gamma = 1.0
-    epsilon_start = 1.00
+    epsilon_start = 1.0
     epsilon_end = 0.10
-    epsilon_depreciation_factor = math.pow(epsilon_end,(3.0 / (n_episodes*n_steps - start_data_set_size)))
+    percent_at_epsilon_complete = 0.50
+    epsilon_depreciation_factor = math.pow((epsilon_end/epsilon_start), (1.0 / (percent_at_epsilon_complete * n_episodes * n_steps)))
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
@@ -217,7 +220,7 @@ if __name__ == '__main__':
     last_data_point = len(agent.logbook['r_tot_discount_avg'])-1
     num_times_cloned = int(float(last_data_point) // float(clone_interval))
     cloning_points = np.linspace(clone_interval, last_data_point, num_times_cloned)
-    final_exploration_frame = math.log(epsilon_end) // math.log(epsilon_depreciation_factor)  
+    final_exploration_frame = percent_at_epsilon_complete * n_episodes * n_steps
   
     # Plot reward curve    
     plt.clf()
@@ -241,7 +244,7 @@ if __name__ == '__main__':
     plt.title(title_str)
     plt.plot([*range(len(reward_history))], reward_history)
     plt.xlabel('Episode')
-    plt.ylabel('Reward Per Episode')
+    plt.ylabel('Reward Per Step')
     plt.savefig('curricula_1/results/learn_cur.png', dpi = 200)
     
     # plot loss curve
