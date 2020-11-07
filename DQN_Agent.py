@@ -151,9 +151,9 @@ class DQN_Agent():
     
     # Copies an old agent network to the current agent
     # @ param copy - the agent whose parameters are to be copied
-    def copy_agent(self, copy_agent):
+    def copy_agent(self, copy_network):
         # Initialze the NN used to estimate Q(s,a) and the optimizer used for gradient descent
-        self.Q_Network = copy.deepcopy(copy_agent.Q_Network)
+        self.Q_Network = copy.deepcopy(copy_network)
         self.opt = torch.optim.Adam(self.Q_Network.parameters() , lr=self.alpha)
         self.loss_fn = torch.nn.MSELoss()
             
@@ -192,7 +192,7 @@ class DQN_Agent():
             
         # Update the current value of epsilon iff the data filling sequence is complete
         if self.data_set_at_start_size and (self.epsilon > self.epsilon_end):
-            self.epsilon = self.epsilon * self.epsilon_depreciation_factor
+            self.epsilon = self.epsilon - self.epsilon_depreciation_factor
             
         return a
     

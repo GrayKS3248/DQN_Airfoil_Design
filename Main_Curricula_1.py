@@ -3,7 +3,6 @@ import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-import math
 import pickle
 
 # Defines what a set of episodes is
@@ -61,6 +60,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
             ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
             ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
+            ("| Best episode: " + '{:.0f}'.format(best_airfoil_reward)).ljust(21) + 
             ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
             "|")
         print(print_str, end="\r", flush=True)
@@ -137,6 +137,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
         ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
         ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
+        ("| Best episode: " + '{:.0f}'.format(best_airfoil_reward)).ljust(21) + 
         ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
         "|")
     print(print_str)
@@ -163,7 +164,7 @@ if __name__ == '__main__':
     n_sets = 1
     n_episodes = 2000
     max_episodes = 3000
-    n_steps = 25 * (2*n_panel_per_surface + 1)
+    n_steps = 20 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
@@ -184,8 +185,8 @@ if __name__ == '__main__':
     gamma = 1.0
     epsilon_start = 1.0
     epsilon_end = 0.10
-    percent_at_epsilon_complete = 0.50
-    epsilon_depreciation_factor = math.pow((epsilon_end/epsilon_start), (1.0 / (percent_at_epsilon_complete * n_episodes * n_steps)))
+    percent_at_epsilon_complete = 0.333
+    epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
     
     # Create agent
     agent = dqn.DQN_Agent(num_actions, state_dimension, max_data_set_size, start_data_set_size, sequence_size, 
