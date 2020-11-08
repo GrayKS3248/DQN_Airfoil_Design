@@ -5,7 +5,7 @@ Created on Wed Nov  4 22:06:29 2020
 @author: GKSch
 """
 
-import Vortex_Panel_Solver_Test as vps 
+import Vortex_Panel_Solver as vps 
 import numpy as np
 
 # Target design parameters

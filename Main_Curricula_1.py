@@ -1,4 +1,4 @@
-import Vortex_Panel_Solver_Test as vps 
+import Vortex_Panel_Solver as vps 
 import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
