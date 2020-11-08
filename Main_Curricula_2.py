@@ -54,13 +54,13 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             end_episode = True
         
         # User readout
-        print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
-            ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+        print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
+            ("| Epoch: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-            ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
-            ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
-            ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
-            ("| Best episode: " + '{:.0f}'.format(best_airfoil_reward)).ljust(21) + 
+            ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
+            ("| Epoch R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(20) + 
+            ("| R/epoch: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
+            ("| Best epoch: " + '{:.0f}'.format(best_airfoil_reward)).ljust(19) + 
             ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
             "|")
         print(print_str, end="\r", flush=True)
@@ -131,13 +131,13 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     env.visualize_airfoil_sequence(surface_x_sequence, best_surface_y_sequence, n_sequence, path="curricula_2/")
     
     # Print the final training results
-    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete...").ljust(24) + 
-        ("| Episode: " + str(curr_episode) + " / " + str(n_episodes)).ljust(22) + 
+    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
+        ("| Epoch: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
         ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
-        ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + " / " + '{:.2f}'.format(target_avg_reward)).ljust(24) + 
-        ("| Episode R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(22) + 
-        ("| R/episode: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(23) + 
-        ("| Best episode: " + '{:.0f}'.format(best_airfoil_reward)).ljust(21) + 
+        ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
+        ("| Epoch R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(20) + 
+        ("| R/epoch: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
+        ("| Best epoch: " + '{:.0f}'.format(best_airfoil_reward)).ljust(19) + 
         ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
         "|")
     print(print_str)
@@ -160,16 +160,16 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 1.0
+    target_avg_reward = 0.80
     n_sets = 1
     n_episodes = 2000
-    max_episodes = 3000
+    max_episodes = 2100
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, alpha_test_points, cl_test_points, 
-                                  cdp_test_points, cm4c_test_points, symmetric=True)
+                                  cdp_test_points, cm4c_test_points)
     num_actions = env.num_actions
     state_dimension = env.state_dimension
     
@@ -182,10 +182,10 @@ if __name__ == '__main__':
     num_neurons_in_layer = 128
     clone_interval = 10000
     alpha = 0.00025
-    gamma = 1.0
+    gamma = 0.99
     epsilon_start = 1.0
     epsilon_end = 0.10
-    percent_at_epsilon_complete = 0.333
+    percent_at_epsilon_complete = 0.50
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
     
     # Create agent

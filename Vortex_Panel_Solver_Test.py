@@ -44,6 +44,11 @@ class Vortex_Panel_Solver():
         self.surface_x = np.append(self.upper_surface_x[:,:-1], self.lower_surface_x).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_y = np.append(upper_surface_y[:,:-1], lower_surface_y).reshape(1, 2 * n_panels_per_surface + 1)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
+        self.x_cen_panel = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
+        x_verts_upper = (self.surface_x[0][0:self.n_panels_per_surface+1])[::-1]
+        x_verts_lower = (self.surface_x[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
+        self.dx_upper = (np.roll(x_verts_upper,-1) - x_verts_upper)[:-1]
+        self.dx_lower = (np.roll(x_verts_lower,-1) - x_verts_lower)[:-1]
         
         # Debug mode
         if debug:
@@ -176,8 +181,8 @@ class Vortex_Panel_Solver():
         
         # Init the A matrix
         A = np.zeros((2 * self.n_panels_per_surface + 1, 2 * self.n_panels_per_surface + 1))
-        A_vx = np.zeros((2 * self.n_panels_per_surface + 1, 2 * self.n_panels_per_surface + 1))
-        A_vy = np.zeros((2 * self.n_panels_per_surface + 1, 2 * self.n_panels_per_surface + 1))
+        A_vx = np.zeros((2 * self.n_panels_per_surface, 2 * self.n_panels_per_surface + 1))
+        A_vy = np.zeros((2 * self.n_panels_per_surface, 2 * self.n_panels_per_surface + 1))
         
         # Get the panel vertices
         pj_set = np.array([self.surface_x[0,:][:-1], 
@@ -207,7 +212,7 @@ class Vortex_Panel_Solver():
         A[2 * self.n_panels_per_surface][0] = 1.0
         A[2 * self.n_panels_per_surface][2 * self.n_panels_per_surface] = 1.0
         
-        return A, A_vx[:-1,:], A_vy[:-1,:]
+        return A, A_vx, A_vy
             
         
     # Solves for the B matrix 
@@ -245,8 +250,8 @@ class Vortex_Panel_Solver():
     def solve_cl_cdp_cm4c(self, v_inf):
         # Get and split cp into lower and upper
         cp = self.solve_cp(v_inf)
-        cp_upper = cp[0:self.n_panels_per_surface][::-1].reshape(self.n_panels_per_surface)
-        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface].reshape(self.n_panels_per_surface)
+        cp_upper = cp[0:self.n_panels_per_surface][::-1]
+        cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface]
         
         # Make sure that the pressure distribution on the upper surface does not intersect the pressure distribution on the lower surface
         ok_cp_distribution = (cp_upper < cp_lower).all()
@@ -258,33 +263,26 @@ class Vortex_Panel_Solver():
         n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
         n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
         ok_cp_shape =(n_peaks_upper <= 2 and n_peaks_lower <= 2)
-        
-        # Get and split x/c coords
-        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
 
         # Get and split y/c coords
         y_coords_upper = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][0:self.n_panels_per_surface][::-1]
         y_coords_lower = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0][self.n_panels_per_surface:2*self.n_panels_per_surface]
         
         # Solve for differential slopes
-        x_verts_upper = (self.surface_x[0][0:self.n_panels_per_surface+1])[::-1]
-        x_verts_lower = (self.surface_x[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
         y_verts_upper = (self.surface_y[0][0:self.n_panels_per_surface+1])[::-1]
         y_verts_lower = (self.surface_y[0][self.n_panels_per_surface:2*self.n_panels_per_surface+1])
         dy_upper = (np.roll(y_verts_upper,-1) - y_verts_upper)[:-1]
         dy_lower = (np.roll(y_verts_lower,-1) - y_verts_lower)[:-1]
-        dx_upper = (np.roll(x_verts_upper,-1) - x_verts_upper)[:-1]
-        dx_lower = (np.roll(x_verts_lower,-1) - x_verts_lower)[:-1]
-        slope_upper = dy_upper / dx_upper
-        slope_lower = dy_lower / dx_lower
+        slope_upper = dy_upper / self.dx_upper
+        slope_lower = dy_lower / self.dx_lower
         
         # Solve for ca and cn
-        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=x_coords)
-        cn = np.trapz(cp_lower - cp_upper, x=x_coords)
+        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=self.x_cen_panel)
+        cn = np.trapz(cp_lower - cp_upper, x=self.x_cen_panel)
         
         # Solve for cm4c
-        part_1 = np.trapz((cp_lower - cp_upper) * (0.25 - x_coords), x=x_coords)
-        part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=x_coords)
+        part_1 = np.trapz((cp_lower - cp_upper) * (0.25 - self.x_cen_panel), x=self.x_cen_panel)
+        part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=self.x_cen_panel)
         cm4c = part_1 + part_2
         
         # Get lift and drag coeffs
@@ -398,7 +396,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil is too thin, return no reward and the new airfoil
-        elif (maximum_thickness < 0.10):
+        elif (maximum_thickness < 0.05):
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -409,7 +407,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil is too thick, return no reward and the new airfoil
-        elif (maximum_thickness > 0.35):
+        elif (maximum_thickness > 0.40):
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -474,7 +472,7 @@ class Vortex_Panel_Solver():
                 # Visualize airfoil
                 if(vis_foil):
                     self.visualize_airfoil(n, path=path)
-                return s2.reshape(2 * self.n_panels_per_surface + 1), reward_depreciation * 0.10, done
+                return s2.reshape(2 * self.n_panels_per_surface + 1), 0.10, done
             else:
                 # Calculate the total weighted loss
                 # Adjust weights to get more tuned results
@@ -485,10 +483,10 @@ class Vortex_Panel_Solver():
                 cdp_loss_weight = 1.0
                 cm4c_loss_weight = 1.0
                 total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
+                total_loss = np.clip(total_loss, 0.0,reward_depreciation)
             
-                # Use the loss to get a reward
-                # The size of this clip determines the size of the reward return space
-                reward = 5.0 * (reward_depreciation - np.clip(total_loss, 0.0,reward_depreciation))
+                # Use the loss to get a reward between 0.5 and 5.0
+                reward = np.clip((5.0 * (reward_depreciation - total_loss)),0.5,5.0)
             
             # Visualize airfoil
             if(vis_foil):
