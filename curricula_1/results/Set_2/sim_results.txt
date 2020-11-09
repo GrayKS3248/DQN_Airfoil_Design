@@ -1,0 +1,6 @@
+Training DQN agent 1 of 1...
+105.05% Complete     | Epoch: 2100/2000| Tot R: 195182  | R/step: 0.41/0.80   | Epoch R: 58.90    | R/epoch: 299.67    | Best epoch: 1262 | Epsilon: 1.00  |
+EXIT: Maximum number of episodes reached.
+Simulation took: 14387.206 seconds.
+Plotting training and trajectory data...
+Plotting took: 11.799 seconds.

@@ -21,7 +21,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     running_reward = [0.0]*10
     reward_history = []
     running_average = [0.0]*100
-    best_airfoil_reward = 0.0
+    best_airfoil_reward = -100.0
     best_surface_y_sequence = []
     surface_x_sequence = []
     surface_y_sequence = []
@@ -55,12 +55,12 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         
         # User readout
         print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
-            ("| Epoch: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
+            ("| Foil: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
             ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
             ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
-            ("| Epoch R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(20) + 
-            ("| R/epoch: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
-            ("| Best epoch: " + '{:.0f}'.format(best_airfoil_reward)).ljust(19) + 
+            ("| Foil R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(19) + 
+            ("| R/foil: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(20) + 
+            ("| Best foil: " + '{:.0f}'.format(best_airfoil_reward)).ljust(18) + 
             ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
             "|")
         print(print_str, end="\r", flush=True)
@@ -120,10 +120,10 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     # Once an episode set is complete, draw the best cp distribution and generate results
     env.surface_x = surface_x_sequence[-1]
     env.surface_y = best_surface_y_sequence[-1]
-    x_upper = env.surface_x[:,0:env.n_panels_per_surface+1]
-    x_lower = env.surface_x[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
-    y_upper = env.surface_y[:,0:env.n_panels_per_surface+1]
-    y_lower = env.surface_y[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    x_upper = env.surface_x[0:env.n_panels_per_surface+1]
+    x_lower = env.surface_x[env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    y_upper = env.surface_y[0:env.n_panels_per_surface+1]
+    y_lower = env.surface_y[env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
     env.surface_normal = np.append(env.get_normal(x_upper, y_upper), env.get_normal(x_lower, y_lower), axis=1)
     env.visualize_cp_save_performance(path="curricula_1/")
     
@@ -132,12 +132,12 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     
     # Print the final training results
     print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
-        ("| Epoch: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
+        ("| Foil: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
         ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
         ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
-        ("| Epoch R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(20) + 
-        ("| R/epoch: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(21) + 
-        ("| Best epoch: " + '{:.0f}'.format(best_airfoil_reward)).ljust(19) + 
+        ("| Foil R: " + ('{:.2f}'.format(running_reward[-1]))).ljust(19) + 
+        ("| R/foil: " + '{:.2f}'.format(sum(running_reward)/len(running_reward))).ljust(20) + 
+        ("| Best foil: " + '{:.0f}'.format(best_airfoil_reward)).ljust(18) + 
         ("| Epsilon: " + '{:.2f}'.format(agent.epsilon)).ljust(17) + 
         "|")
     print(print_str)

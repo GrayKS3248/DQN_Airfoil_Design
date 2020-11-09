@@ -23,7 +23,6 @@ class Vortex_Panel_Solver():
         self.num_actions = 4 * n_panels_per_surface - 2
         self.state_dimension = 2 * n_panels_per_surface + 1
         self.n_panels_per_surface = n_panels_per_surface
-        self.z_dirn = np.array([np.zeros(self.n_panels_per_surface), np.zeros(self.n_panels_per_surface), np.ones(self.n_panels_per_surface)])
         self.precision = 14 # ***** MUST BE EVEN ***** #
         
         self.alpha_test_points = alpha_test_points
@@ -65,7 +64,7 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             highest_vertex = np.random.randint(self.n_panels_per_surface - self.n_panels_per_surface // 2, self.n_panels_per_surface)
-            highest_vertex_height = np.random.randint(20,100) / 400.0 
+            highest_vertex_height = np.random.randint(67,100) / 666.66667 
         else:
             highest_vertex = self.n_panels_per_surface - self.n_panels_per_surface // 2
             highest_vertex_height = 0.15
@@ -100,7 +99,7 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             lowest_vertex = np.random.randint(1,self.n_panels_per_surface // 2 + 1)
-            lowest_vertex_height = -1.0 * np.random.randint(20,100) / 400.0    
+            lowest_vertex_height = -1.0 * np.random.randint(67,100) / 666.66667   
         else:
             lowest_vertex = self.n_panels_per_surface // 2
             lowest_vertex_height = -0.15
@@ -265,7 +264,7 @@ class Vortex_Panel_Solver():
         ok_cp_distribution = (cp_upper < cp_lower).all()
         
         # Make sure that the suction peak is on the first third of the airfoil
-        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.73205
+        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.7321
         
         # Make sure that the pressure distribution on both surfaces no more than 2 peaks
         n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
@@ -344,12 +343,13 @@ class Vortex_Panel_Solver():
         surface_normal_new = np.append(upper_surface_normal, lower_surface_normal, axis=1)
     
         # Determine airfoil spikeness
+        upper_surface_y = np.flip(upper_surface_y)
         n_peaks_upper = len(find_peaks(upper_surface_y)[0])
         n_peaks_lower = len(find_peaks(-1.0*lower_surface_y)[0])
         
         # Determine max flow turning angle on upper and lower surfaces (excluding LE and TE)
-        surface_tan_new = np.array([self.surface_normal[1,:], -1.0 * self.surface_normal[0,:]])
-        surface_tan_new_roll = np.roll(surface_tan_new,-1)
+        surface_tan_new = np.array([surface_normal_new[1,:], -1.0 * surface_normal_new[0,:]])
+        surface_tan_new_roll = np.roll(surface_tan_new,-1,axis=1)
         LE_index = self.n_panels_per_surface-1
         TE_index = 2*self.n_panels_per_surface-1
         new_turning_angles = np.delete(np.einsum('ij,ij->j', surface_tan_new, surface_tan_new_roll), [LE_index, TE_index])
@@ -359,13 +359,14 @@ class Vortex_Panel_Solver():
         maximum_thickness_location = self.surface_x[np.argmax(upper_surface_y - lower_surface_y) + self.n_panels_per_surface]
         
         # Determine the minimum thickness location
-        minimum_thickness_location = self.surface_x[self.n_panels_per_surface+1:][np.argmin(upper_surface_y[1:] - lower_surface_y[1:])]
+        minimum_thickness_location = self.surface_x[np.argmin(upper_surface_y[1:] - lower_surface_y[1:]) + self.n_panels_per_surface + 1]
         
         ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a negative reward and the old airfoil
         # The acceptable range is any y/c between [-0.5, 0.5]
         # The acceptable range for the TE is y/c between [-0.10,0.10]
         if (max(s2) > 0.5 or min(s2) < -0.5) or (s2[0] > 0.10 or s2[-1] < -0.10):
+            #print("out of bounds")
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n, path=path)
@@ -373,6 +374,7 @@ class Vortex_Panel_Solver():
         
         # If the lower surface every intersects the upper surface anywhere but the LE, return a negative reward and the new airfoil
         elif (upper_surface_y < lower_surface_y).any():
+            #print("intersection")
             # Visualize airfoil
             if(vis_foil):
                 self.visualize_airfoil(n, path=path)
@@ -380,18 +382,20 @@ class Vortex_Panel_Solver():
         
         # If the airfoil is too spikey, return no reward and the new airfoil
         # Too spikey is defined as having more than a 2 peaks per surface
-        elif ((n_peaks_upper >= 2) or (n_peaks_lower >= 2)):
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
+        # elif ((n_peaks_upper >= 2) or (n_peaks_lower >= 2)):
+        #     #print("airfoil peaks")
+        #     # Update the stored airfoil
+        #     self.surface_y = s2
+        #     self.surface_normal = surface_normal_new
         
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
+        #     # Visualize airfoil
+        #     if(vis_foil):
+        #         self.visualize_airfoil(n, path=path)
+        #     return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil has a turning angle that is too great (>90 degrees), return no reward and the new airfoil
         elif ((new_turning_angles < 0.0).any()):
+            #print("turning angles")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -403,6 +407,7 @@ class Vortex_Panel_Solver():
         
         # If the airfoil is too thin, return no reward and the new airfoil
         elif (maximum_thickness < 0.05):
+            #print("too thin")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -414,6 +419,7 @@ class Vortex_Panel_Solver():
         
         # If the airfoil is too thick, return no reward and the new airfoil
         elif (maximum_thickness > 0.40):
+            #print("too thick")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -425,6 +431,7 @@ class Vortex_Panel_Solver():
         
         # If the point of maximum thickness is too far back, return no reward and the new airfoil
         elif (maximum_thickness_location > 0.50):
+            #print("max thickness past 0.50")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -436,6 +443,7 @@ class Vortex_Panel_Solver():
 
         # If the point of minimum thickness is too far forward, return no reward and the new airfoil
         elif (minimum_thickness_location < 0.90):
+            #print("min thickness before 0.90")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -475,11 +483,13 @@ class Vortex_Panel_Solver():
                 
             # If the cp is bad, return a small positive reward
             if not(cp_state):
+                #print("bad cp")
                 # Visualize airfoil
                 if(vis_foil):
                     self.visualize_airfoil(n, path=path)
                 return s2.reshape(2 * self.n_panels_per_surface + 1), 0.10, done
             else:
+                #print("in target")
                 # Calculate the total weighted loss
                 # Adjust weights to get more tuned results
                 cl_loss = cl_loss / n_test_points
@@ -542,7 +552,7 @@ class Vortex_Panel_Solver():
                 }
         
         # Get the x coords of the control points
-        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[0][:-1].reshape(2*self.n_panels_per_surface)
+        x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[:-1].reshape(2*self.n_panels_per_surface)
         
         # Step through all the test points
         for test_point in range(np.size(self.alpha_test_points)):
