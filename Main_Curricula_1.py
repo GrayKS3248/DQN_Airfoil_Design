@@ -131,7 +131,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     env.visualize_airfoil_sequence(surface_x_sequence, best_surface_y_sequence, n_sequence, path="curricula_1/")
     
     # Print the final training results
-    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
+    print_str = (("100.00% Complete").ljust(21) + 
         ("| Foil: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
         ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
         ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
@@ -163,13 +163,13 @@ if __name__ == '__main__':
     target_avg_reward = 0.80
     n_sets = 1
     n_episodes = 2000
-    max_episodes = 2100
+    max_episodes = 4000
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, alpha_test_points, cl_test_points, 
-                                  cdp_test_points, cm4c_test_points)
+                                  cdp_test_points, cm4c_test_points, easy=True)
     num_actions = env.num_actions
     state_dimension = env.state_dimension
     

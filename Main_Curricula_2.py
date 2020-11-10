@@ -120,10 +120,10 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     # Once an episode set is complete, draw the best cp distribution and generate results
     env.surface_x = surface_x_sequence[-1]
     env.surface_y = best_surface_y_sequence[-1]
-    x_upper = env.surface_x[:,0:env.n_panels_per_surface+1]
-    x_lower = env.surface_x[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
-    y_upper = env.surface_y[:,0:env.n_panels_per_surface+1]
-    y_lower = env.surface_y[:,env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    x_upper = env.surface_x[0:env.n_panels_per_surface+1]
+    x_lower = env.surface_x[env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
+    y_upper = env.surface_y[0:env.n_panels_per_surface+1]
+    y_lower = env.surface_y[env.n_panels_per_surface:env.n_panels_per_surface+env.n_panels_per_surface+1]
     env.surface_normal = np.append(env.get_normal(x_upper, y_upper), env.get_normal(x_lower, y_lower), axis=1)
     env.visualize_cp_save_performance(path="curricula_2/")
     
@@ -131,7 +131,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
     env.visualize_airfoil_sequence(surface_x_sequence, best_surface_y_sequence, n_sequence, path="curricula_2/")
     
     # Print the final training results
-    print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
+    print_str = (("100.00% Complete").ljust(21) + 
         ("| Foil: " + str(curr_episode) + "/" + str(n_episodes)).ljust(18) + 
         ("| Tot R: " + '{:.0f}'.format(total_reward)).ljust(17) + 
         ("| R/step: " + '{:.2f}'.format(sum(running_average)/len(running_average)) + "/" + '{:.2f}'.format(target_avg_reward)).ljust(22) + 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # Load previous agent network
     with open("curricula_1/results/outputs", "rb") as f:
         outputs = pickle.load(f)
-    agent.copy_agent(outputs['last_agent'].logbook['best_Q'])
+    agent.copy_agent(outputs['last_agent'].Q_Network)
     
     # Run the defined number of sets and update the average
     start = time.time()
