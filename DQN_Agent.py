@@ -64,7 +64,8 @@ class DQN_Agent():
         self.loss_fn = torch.nn.MSELoss()
             
         # Initialize the NN used to provide the target for Q improvement
-        self.Q_Target_Network = copy.deepcopy(self.Q_Network)
+        self.Q_Target_Network = NN.Neural_Network(self.sequence_size * self.state_dimension, self.num_actions, self.num_hidden_layers, self.num_neurons_in_layer)
+        self.Q_Target_Network.load_state_dict(self.Q_Network.state_dict())
         self.steps_since_reset = 0
         
         # Initialize the sequence of states used as the input to the Q_Network (data structure : QUEUE)
@@ -254,17 +255,18 @@ class DQN_Agent():
             
             # Get target
             target = torch.Tensor([0]*size)
-            if size > 1:
-                r = torch.Tensor(reward_memory_minibatch)
-                s2 = torch.Tensor(next_state_sequence_memory_minibatch)
-                Q_hat = torch.max(self.Q_Target_Network.forward(s2).detach(), dim=1).values
-            else:
-                r = torch.Tensor([reward_memory_minibatch])
-                if self.state_dimension == 1:
-                    s2 = torch.Tensor([next_state_sequence_memory_minibatch])
-                else:    
+            with torch.no_grad():
+                if size > 1:
+                    r = torch.Tensor(reward_memory_minibatch)
                     s2 = torch.Tensor(next_state_sequence_memory_minibatch)
-                Q_hat = torch.max(self.Q_Target_Network.forward(s2).detach())
+                    Q_hat = torch.max(self.Q_Target_Network.forward(s2), dim=1).values
+                else:
+                    r = torch.Tensor([reward_memory_minibatch])
+                    if self.state_dimension == 1:
+                        s2 = torch.Tensor([next_state_sequence_memory_minibatch])
+                    else:    
+                        s2 = torch.Tensor(next_state_sequence_memory_minibatch)
+                    Q_hat = torch.max(self.Q_Target_Network.forward(s2))
             target = r + (self.gamma * Q_hat)
             
             # Get the evaluation
@@ -293,7 +295,8 @@ class DQN_Agent():
             # Count how many iterations it has been since the target network has been reset
             self.steps_since_reset += 1
             if self.steps_since_reset == self.target_reset_interval:
-                self.Q_Target_Network = copy.deepcopy(self.Q_Network)   
+                self.Q_Target_Network = NN.Neural_Network(self.sequence_size * self.state_dimension, self.num_actions, self.num_hidden_layers, self.num_neurons_in_layer)
+                self.Q_Target_Network.load_state_dict(self.Q_Network.state_dict()) 
                 self.steps_since_reset = 0
     
     # Updates the best trajectory at the end of each episode
@@ -361,7 +364,8 @@ class DQN_Agent():
             self.loss_fn = torch.nn.MSELoss()
             
         # Initialize the NN used to provide the target for Q improvement
-        self.Q_Target_Network = copy.deepcopy(self.Q_Network)
+        self.Q_Target_Network = NN.Neural_Network(self.sequence_size * self.state_dimension, self.num_actions, self.num_hidden_layers, self.num_neurons_in_layer)
+        self.Q_Target_Network.load_state_dict(self.Q_Network.state_dict())
         self.steps_since_reset = 0
         
         # Initialize the sequence of states used as the input to the Q_Network (data structure : QUEUE)

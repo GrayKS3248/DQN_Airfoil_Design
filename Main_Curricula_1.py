@@ -1,4 +1,4 @@
-import Vortex_Panel_Solver as vps 
+import Vortex_Panel_Solver_Sum_of_Forces as vps 
 import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
@@ -153,6 +153,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
 if __name__ == '__main__':
 
     # Target design parameters
+    re_test = 1000000
     alpha_test_points = np.array([0.0, 2.0, 4.0, 6.0, 8.0, 10.0]) * np.pi / 180.0
     cl_test_points = np.array([0.2442, 0.4549, 0.7153, 0.9016, 1.0885, 1.2696])
     cdp_test_points = np.array([0.00122, 0.00168, 0.00236, 0.00381, 0.00642, 0.00970])
@@ -160,28 +161,28 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 0.80
+    target_avg_reward = 0.20
     n_sets = 1
     n_episodes = 2000
-    max_episodes = 4000
+    max_episodes = 2500
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
-    env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, alpha_test_points, cl_test_points, 
+    env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, re_test, alpha_test_points, cl_test_points, 
                                   cdp_test_points, cm4c_test_points, easy=True)
     num_actions = env.num_actions
     state_dimension = env.state_dimension
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 1000
+    start_data_set_size = 2000
     sequence_size = 1
-    minibatch_size = 32
+    minibatch_size = 40
     num_hidden_layers = 2
     num_neurons_in_layer = 128
     clone_interval = 10000
-    alpha = 0.00025
+    alpha = 0.0002
     gamma = 0.99
     epsilon_start = 1.0
     epsilon_end = 0.10

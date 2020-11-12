@@ -16,7 +16,7 @@ import csv
 # @param cdp_test_points - n pressure drag coefficients in form np.array([cdp0, ..., cdpn])
 # @param cm4c_test_points - n moment coefficients about quater chord in form np.array([cm4c0, ..., cm4cn])
 class Vortex_Panel_Solver():
-    def __init__(self, max_num_steps, n_panels_per_surface, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, symmetric=False, debug=False, easy=False):
+    def __init__(self, max_num_steps, n_panels_per_surface, re_test, alpha_test_points, cl_test_points, cdp_test_points, cm4c_test_points, symmetric=False, debug=False, easy=False):
         
         self.max_num_steps = max_num_steps
         self.curr_step = 0
@@ -25,6 +25,12 @@ class Vortex_Panel_Solver():
         self.n_panels_per_surface = n_panels_per_surface
         self.precision = 14 # ***** MUST BE EVEN ***** #
         self.easy = easy
+        
+        self.p_inf = 101325.0
+        self.rho = 1.225
+        self.mu = 1.849e-5
+        self.v_free = (re_test * self.mu) / (self.rho)
+        self.q_inf = 0.5 * self.rho * self.v_free**2
         
         self.alpha_test_points = alpha_test_points
         self.cl_test_points = cl_test_points
@@ -45,7 +51,6 @@ class Vortex_Panel_Solver():
         self.surface_y = np.append(upper_surface_y[:-1], lower_surface_y)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
         self.x_cen_panel = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[self.n_panels_per_surface:2*self.n_panels_per_surface]
-        self.dx = (np.roll(self.lower_surface_x,-1) - self.lower_surface_x)[:-1]
         
         # Debug mode
         if debug:
@@ -181,7 +186,7 @@ class Vortex_Panel_Solver():
         vy_prime = np.append(vy_prime_j, 0.0) + np.insert(vy_prime_jp1,0,0.0)
         
         # Combine results
-        return vn_prime, vx_prime, vy_prime
+        return vn_prime, vx_prime, vy_prime, panel_length
             
     #Solves for the A matrices
     # @return the A matrix that solves the normal vel mag, the A matrix that solves the vx vel mag, and the A matrix that solves the vy vel mag
@@ -209,7 +214,7 @@ class Vortex_Panel_Solver():
             control_point_normal = self.surface_normal[:,curr_control_point]
             
             # Solve the integral
-            vn_prime, vx_prime, vy_prime = self.solve_integral(pj_set, pjp1_set, control_point, control_point_normal)
+            vn_prime, vx_prime, vy_prime, panel_length = self.solve_integral(pj_set, pjp1_set, control_point, control_point_normal)
                 
             # Format and update A
             A[curr_control_point][:] = vn_prime
@@ -220,7 +225,7 @@ class Vortex_Panel_Solver():
         A[2 * self.n_panels_per_surface][0] = 1.0
         A[2 * self.n_panels_per_surface][2 * self.n_panels_per_surface] = 1.0
         
-        return A, A_vx, A_vy
+        return A, A_vx, A_vy, panel_length, control_point_set
             
         
     # Solves for the B matrix 
@@ -241,7 +246,7 @@ class Vortex_Panel_Solver():
     # @return coefficient of pressure at each control point
     def solve_cp(self, v_inf):
         # Get the magnitude of the tangential vel at each control point
-        A, A_vx, A_vy = self.get_A()
+        A, A_vx, A_vy, panel_length, control_point_set = self.get_A()
         B = self.get_B(v_inf)
         gamma = np.linalg.solve(A, -1.0 * B)
         vx = ((np.matmul(A_vx, gamma)) + v_inf[0]).reshape(2*self.n_panels_per_surface)
@@ -250,14 +255,14 @@ class Vortex_Panel_Solver():
     
         # Bernoulli's equation to get Cp
         cp = 1 - v_mag ** 2
-        return cp
+        return cp, panel_length, control_point_set
 
     # Gets the lift, pressure drag, and moment coefficients based on the pressure distribution
     # @param v_inf - freestream velocity in form np.array([Vx, Vy])
     # @return the lift, pressure drag, and moment coefficients coefficient
     def solve_cl_cdp_cm4c(self, v_inf):
         # Get and split cp into lower and upper
-        cp = self.solve_cp(v_inf)
+        cp, panel_length, control_point_set = self.solve_cp(v_inf)
         cp_upper = cp[0:self.n_panels_per_surface][::-1]
         cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface]
         
@@ -265,37 +270,26 @@ class Vortex_Panel_Solver():
         ok_cp_distribution = (cp_upper < cp_lower).all()
         
         # Make sure that the suction peak is on the first third of the airfoil
-        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.44224957031
+        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.732051
         
         # Make sure that the pressure distribution on both surfaces no more than 2 peaks
         n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
         n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
         ok_cp_shape =(n_peaks_upper <= 2 and n_peaks_lower <= 2)
-
-        # Get and split y/c coords
-        y_coords_upper = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[0:self.n_panels_per_surface][::-1]
-        y_coords_lower = ((self.surface_y + np.roll(self.surface_y,-1)) / 2)[self.n_panels_per_surface:2*self.n_panels_per_surface]
         
-        # Solve for differential slopes
-        y_verts_upper = (self.surface_y[0:self.n_panels_per_surface+1])[::-1]
-        y_verts_lower = (self.surface_y[self.n_panels_per_surface:2*self.n_panels_per_surface+1])
-        dy_upper = (np.roll(y_verts_upper,-1) - y_verts_upper)[:-1]
-        dy_lower = (np.roll(y_verts_lower,-1) - y_verts_lower)[:-1]
-        slope_upper = dy_upper / self.dx
-        slope_lower = dy_lower / self.dx
+        # Calculate normal and axial force coefficients
+        p_dist = self.q_inf*cp + self.p_inf
+        f_dist = -p_dist*panel_length*self.surface_normal
+        f_net = f_dist.sum(axis=1)
+        coeff = f_net / self.q_inf
         
-        # Solve for ca and cn
-        ca = np.trapz(cp_upper*slope_upper - cp_lower*slope_lower, x=self.x_cen_panel)
-        cn = np.trapz(cp_lower - cp_upper, x=self.x_cen_panel)
+        # Calculate moment about quarter chord
+        torque = np.cross(np.transpose(control_point_set - np.array([[0.25],[0.0]])), np.transpose(f_dist)).sum()
+        cm4c = torque / self.q_inf
         
-        # Solve for cm4c
-        part_1 = np.trapz((cp_lower - cp_upper) * (0.25 - self.x_cen_panel), x=self.x_cen_panel)
-        part_2 = np.trapz((cp_upper*slope_upper*y_coords_upper) - (cp_lower*slope_lower*y_coords_lower), x=self.x_cen_panel)
-        cm4c = part_1 + part_2
-        
-        # Get lift and drag coeffs
-        cl = cn * v_inf[0] - ca * v_inf[1]
-        cdp = cn * v_inf[1] + ca * v_inf[0]
+        # Calculate lift and pressure drag coefficients
+        cl = coeff[1]*v_inf[0] - coeff[0]*v_inf[1]
+        cdp = coeff[1]*v_inf[1] + coeff[0]*v_inf[0]
         
         return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape)
 
@@ -574,7 +568,6 @@ class Vortex_Panel_Solver():
         self.surface_y = np.append(upper_surface_y[:-1], lower_surface_y)
         self.surface_normal = np.append(upper_surface_normal, lower_surface_normal, axis=1)
         self.x_cen_panel = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[self.n_panels_per_surface:2*self.n_panels_per_surface]
-        self.dx = (np.roll(self.lower_surface_x,-1) - self.lower_surface_x)[:-1]
         
         # Visualize airfoil
         if(vis_foil):
