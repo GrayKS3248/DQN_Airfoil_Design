@@ -64,7 +64,7 @@ class Vortex_Panel_Solver():
      
     # Create upper surface that is legal
     def make_upper_surface(self, symmetric):
-        self.upper_surface_x = np.append(np.array([1.0]), ((np.linspace(0.974679434481,0.0,self.n_panels_per_surface))**2))
+        self.upper_surface_x = np.append(np.array([1.0]), ((np.linspace(0.97468,0.0,self.n_panels_per_surface))**2))
         upper_surface_y = np.zeros(self.n_panels_per_surface+1)
         upper_surface_y[0] = 0.01
         
@@ -99,7 +99,7 @@ class Vortex_Panel_Solver():
      
     # Create upper surface that is legal
     def make_lower_surface(self, symmetric):
-        self.lower_surface_x = np.append(((np.linspace(0.0,0.974679434481,self.n_panels_per_surface))**2), np.array([1.0]))
+        self.lower_surface_x = np.append(((np.linspace(0.0,0.97468,self.n_panels_per_surface))**2), np.array([1.0]))
         lower_surface_y = np.zeros(self.n_panels_per_surface+1)
         lower_surface_y[-1] = -0.01
         
@@ -140,8 +140,9 @@ class Vortex_Panel_Solver():
         panels = np.array([(x - np.roll(x, -1))[:-1], (y - np.roll(y, -1))[:-1], np.zeros(self.n_panels_per_surface)])
         product = np.array([-1.0*panels[1,:], panels[0,:]])
         product_norm = np.linalg.norm(product,axis=0)
+        norm_dirn = product / product_norm
         
-        return (product / product_norm)
+        return norm_dirn
     
     # Solves the integral required to populate linear system to solve for gamma for each panel (positive circulation into page)
     # @param pj - panel points set
@@ -270,7 +271,7 @@ class Vortex_Panel_Solver():
         ok_cp_distribution = (cp_upper < cp_lower).all()
         
         # Make sure that the suction peak is on the first third of the airfoil
-        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.732051
+        ok_suction_peak = np.argmin(cp_upper) <= self.n_panels_per_surface // 1.7321
         
         # Make sure that the pressure distribution on both surfaces no more than 2 peaks
         n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
@@ -278,9 +279,10 @@ class Vortex_Panel_Solver():
         ok_cp_shape =(n_peaks_upper <= 2 and n_peaks_lower <= 2)
         
         # Calculate normal and axial force coefficients
+        TE_correction = np.array([(-self.p_inf*panel_length*self.surface_normal[0,:]).sum(),0.0])
         p_dist = self.q_inf*cp + self.p_inf
         f_dist = -p_dist*panel_length*self.surface_normal
-        f_net = f_dist.sum(axis=1)
+        f_net = f_dist.sum(axis=1) - TE_correction
         coeff = f_net / self.q_inf
         
         # Calculate moment about quarter chord
@@ -394,19 +396,6 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
-        # If the airfoil is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 3 peaks per surface
-        elif ((self.easy) and ((n_peaks_upper >= 3) or (n_peaks_lower >= 3))):
-            #print("airfoil peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-        
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-        
         # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
         # Too spikey is defined as having more than a 1 peak
         elif ((not self.easy) and (n_peaks_thickness >= 2)):
@@ -432,9 +421,35 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
-        # If the airfoil has a turning angle that is too great (>90 degrees), return no reward and the new airfoil
+        # If the airfoil is too spikey, return no reward and the new airfoil
+        # Too spikey is defined as having more than a 2 peaks per surface
+        elif ((self.easy) and ((n_peaks_upper >= 3) or (n_peaks_lower >= 3))):
+            #print("easy airfoil peaks")
+            # Update the stored airfoil
+            self.surface_y = s2
+            self.surface_normal = surface_normal_new
+        
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n, path=path)
+            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
+        
+        # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
+        # Too spikey is defined as having more than a 1 peak
+        elif ((self.easy) and (n_peaks_thickness >= 3)):
+            #print("easy thickness peaks")
+            # Update the stored airfoil
+            self.surface_y = s2
+            self.surface_normal = surface_normal_new
+        
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n, path=path)
+            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
+        
+        # If the airfoil has a turning angle that is too great (>60 degrees), return no reward and the new airfoil
         elif ((self.easy) and ((new_turning_angles < 0.0).any())):
-            #print("turning angles")
+            #print("easy turning angles")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -597,7 +612,7 @@ class Vortex_Panel_Solver():
             
             # Get the distribution and performance parameters
             v_inf = np.array([np.cos(self.alpha_test_points[test_point]), np.sin(self.alpha_test_points[test_point])])
-            cp = self.solve_cp(v_inf)
+            cp, panel_length, control_point_set = self.solve_cp(v_inf)
             cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
             
             # Update the performance book

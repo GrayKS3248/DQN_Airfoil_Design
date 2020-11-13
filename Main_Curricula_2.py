@@ -184,7 +184,7 @@ if __name__ == '__main__':
     clone_interval = 10000
     alpha = 0.00025
     gamma = 0.99
-    epsilon_start = 0.50
+    epsilon_start = 1.0
     epsilon_end = 0.10
     percent_at_epsilon_complete = 0.75
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)

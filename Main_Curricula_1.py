@@ -52,6 +52,9 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         if ((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes):
             exit_cond = 3
             end_episode = True
+        if (sum(running_average)/len(running_average)) >= target_avg_reward:
+            exit_cond = 4
+            end_episode = True
         
         # User readout
         print_str = (('{:03.2f}'.format(100.0 * percent_complete) + "% Complete").ljust(21) + 
@@ -147,6 +150,8 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         print("EXIT: Negative learning detected.")
     elif exit_cond==3:
         print("EXIT: Target episodes and average reached.")
+    elif exit_cond==4:
+        print("EXIT: Test exit")
     return agent, reward_history
 
 
@@ -161,7 +166,7 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 0.20
+    target_avg_reward = 0.51
     n_sets = 1
     n_episodes = 2000
     max_episodes = 2500
@@ -176,13 +181,13 @@ if __name__ == '__main__':
     
     # Agent parameters
     max_data_set_size = 1000000
-    start_data_set_size = 2000
+    start_data_set_size = 1000
     sequence_size = 1
-    minibatch_size = 40
+    minibatch_size = 32
     num_hidden_layers = 2
     num_neurons_in_layer = 128
     clone_interval = 10000
-    alpha = 0.0002
+    alpha = 0.00025
     gamma = 0.99
     epsilon_start = 1.0
     epsilon_end = 0.10
