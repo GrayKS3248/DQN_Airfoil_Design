@@ -49,11 +49,8 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         if ((curr_episode >= n_episodes) and (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0)):
             exit_cond = 2
             end_episode = True
-        if ((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes):
+        if (((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes)):
             exit_cond = 3
-            end_episode = True
-        if (sum(running_average)/len(running_average)) >= target_avg_reward:
-            exit_cond = 4
             end_episode = True
         
         # User readout
@@ -150,8 +147,6 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         print("EXIT: Negative learning detected.")
     elif exit_cond==3:
         print("EXIT: Target episodes and average reached.")
-    elif exit_cond==4:
-        print("EXIT: Test exit")
     return agent, reward_history
 
 
@@ -166,10 +161,10 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 0.51
+    target_avg_reward = 1.50
     n_sets = 1
-    n_episodes = 2000
-    max_episodes = 2500
+    n_episodes = 1000
+    max_episodes = 5000
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
@@ -191,7 +186,7 @@ if __name__ == '__main__':
     gamma = 0.99
     epsilon_start = 1.0
     epsilon_end = 0.10
-    percent_at_epsilon_complete = 0.50
+    percent_at_epsilon_complete = 0.99
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
     
     # Create agent

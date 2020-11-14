@@ -278,6 +278,12 @@ class Vortex_Panel_Solver():
         n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
         ok_cp_shape =(n_peaks_upper <= 2 and n_peaks_lower <= 2)
         
+        # Make sure the TE of the cp distribution has minimum thickness
+        if self.easy:
+            ok_cp_TE = True
+        else:
+            ok_cp_TE = min(abs(cp_upper-cp_lower)) == abs(cp_upper-cp_lower)[-1]
+        
         # Calculate normal and axial force coefficients
         TE_correction = np.array([(-self.p_inf*panel_length*self.surface_normal[0,:]).sum(),0.0])
         p_dist = self.q_inf*cp + self.p_inf
@@ -293,7 +299,7 @@ class Vortex_Panel_Solver():
         cl = coeff[1]*v_inf[0] - coeff[0]*v_inf[1]
         cdp = coeff[1]*v_inf[1] + coeff[0]*v_inf[0]
         
-        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape)
+        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape and ok_cp_TE)
 
     # converts discrete action, a, into an airfoil transforming action
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 4
@@ -359,7 +365,7 @@ class Vortex_Panel_Solver():
         maximum_thickness_location = self.surface_x[np.argmax(upper_surface_y - lower_surface_y) + self.n_panels_per_surface]
         
         # Determine the minimum thickness location
-        minimum_thickness_location = self.surface_x[np.argmin(upper_surface_y[1:] - lower_surface_y[1:]) + self.n_panels_per_surface + 1]
+        minimum_thickness = min((upper_surface_y - lower_surface_y)[1:-1])
         
         # Determine the spikiness of the thickness distribution
         n_peaks_thickness = len(find_peaks((upper_surface_y-lower_surface_y))[0])
@@ -421,44 +427,6 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
-        # If the airfoil is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 2 peaks per surface
-        elif ((self.easy) and ((n_peaks_upper >= 3) or (n_peaks_lower >= 3))):
-            #print("easy airfoil peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-        
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-        
-        # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 1 peak
-        elif ((self.easy) and (n_peaks_thickness >= 3)):
-            #print("easy thickness peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-        
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-        
-        # If the airfoil has a turning angle that is too great (>60 degrees), return no reward and the new airfoil
-        elif ((self.easy) and ((new_turning_angles < 0.0).any())):
-            #print("easy turning angles")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-            
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-        
         # If the airfoil is too thin, return no reward and the new airfoil
         elif (maximum_thickness < 0.05):
             #print("too thin")
@@ -484,8 +452,8 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the point of maximum thickness is too far back, return no reward and the new airfoil
-        elif (maximum_thickness_location > 0.50):
-            #print("max thickness past 0.50")
+        elif (maximum_thickness_location > 0.40):
+            #print("max thickness past 0.40")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -495,9 +463,9 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
 
-        # If the point of minimum thickness is too far forward, return no reward and the new airfoil
-        elif (minimum_thickness_location < 0.95):
-            #print("min thickness before 0.95")
+        # If the point of minimum thickness is not the TE, return no reward and the new airfoil
+        elif (minimum_thickness > 0.02):
+            #print("min thickness not at TE")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new

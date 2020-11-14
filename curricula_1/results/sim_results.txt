@@ -1,0 +1,7 @@
+F:\Github_Repos\DQN_Airfoil_Design>python Main_Curricula_1.py
+Training DQN agent 1 of 1...
+100.00% Complete     | Foil: 1229/1000 | Tot R: 275322  | R/step: 1.50/1.50   | Foil R: 2083.35  | R/foil: 1213.55   | Best foil: 2340 | Epsilon: 1.00  |
+EXIT: Target episodes and average reached.
+Simulation took: 9433.870 seconds.
+Plotting training and trajectory data...
+Plotting took: 7.850 seconds.
