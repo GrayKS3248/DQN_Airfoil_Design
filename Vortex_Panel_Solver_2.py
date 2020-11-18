@@ -69,10 +69,10 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             highest_vertex = np.random.randint(self.n_panels_per_surface - self.n_panels_per_surface // 2, self.n_panels_per_surface)
-            highest_vertex_height = np.random.randint(67,100) / 666.66667 
+            highest_vertex_height = np.random.randint(25,83) / 666.66667 
         else:
             highest_vertex = self.n_panels_per_surface - self.n_panels_per_surface // 2
-            highest_vertex_height = 0.15
+            highest_vertex_height = 0.10
             
         leading_slope = (highest_vertex_height) / (self.upper_surface_x[highest_vertex])
         trailing_slope = (0.01 - highest_vertex_height) / (1.0 - self.upper_surface_x[highest_vertex])
@@ -104,10 +104,10 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             lowest_vertex = np.random.randint(1,self.n_panels_per_surface // 2 + 3)
-            lowest_vertex_height = -1.0 * np.random.randint(67,100) / 666.66667    
+            lowest_vertex_height = -1.0 * np.random.randint(25,83) / 666.66667    
         else:
             lowest_vertex = self.n_panels_per_surface // 2
-            lowest_vertex_height = -0.15
+            lowest_vertex_height = -0.10
             
         leading_slope = (0.0 - lowest_vertex_height) / (0.0 - self.lower_surface_x[lowest_vertex])
         trailing_slope = (-0.01 - lowest_vertex_height) / (1.0 - self.lower_surface_x[lowest_vertex])   
@@ -265,6 +265,8 @@ class Vortex_Panel_Solver():
         cp, panel_length, control_point_set = self.solve_cp(v_inf)
         cp_upper = cp[0:self.n_panels_per_surface][::-1]
         cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface]
+        cp_upper_peaks = np.insert(cp_upper, 0, cp_lower[0])
+        cp_lower_peaks = np.insert(cp_lower, 0, cp_upper[0])
         
         # Make sure that the pressure distribution on the upper surface does not intersect the pressure distribution on the lower surface
         ok_cp_distribution = (cp_upper < cp_lower).all()
@@ -273,8 +275,8 @@ class Vortex_Panel_Solver():
         ok_suction_peak = control_point_set[0,:][self.n_panels_per_surface+np.argmin(cp_upper)] <= 0.25
         
         # Make sure that the pressure distribution on both surfaces no more than 2 peaks
-        n_peaks_upper = len(find_peaks(-1.0*cp_upper)[0])
-        n_peaks_lower = len(find_peaks(-1.0*cp_lower)[0])
+        n_peaks_upper = len(find_peaks(-1.0*cp_upper_peaks)[0])
+        n_peaks_lower = len(find_peaks(-1.0*cp_lower_peaks)[0])
         ok_cp_shape = (n_peaks_upper <= 2 and n_peaks_lower <= 2)
         
         # Calculate normal and axial force coefficients
@@ -343,8 +345,6 @@ class Vortex_Panel_Solver():
     
         # Determine airfoil spikeness
         upper_surface_y = np.flip(upper_surface_y)
-        n_peaks_upper = len(find_peaks(upper_surface_y)[0])
-        n_peaks_lower = len(find_peaks(-1.0*lower_surface_y)[0])
         
         # Determine max flow turning angle on upper and lower surfaces (excluding LE and TE)
         surface_tan_new = np.array([surface_normal_new[1,:], -1.0 * surface_normal_new[0,:]])
@@ -359,9 +359,6 @@ class Vortex_Panel_Solver():
         
         # Determine the minimum thickness location
         minimum_thickness = min((upper_surface_y - lower_surface_y)[1:-1])
-        
-        # Determine the spikiness of the thickness distribution
-        n_peaks_thickness = len(find_peaks((upper_surface_y-lower_surface_y))[0])
         
         ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a negative reward and the old airfoil
@@ -381,35 +378,9 @@ class Vortex_Panel_Solver():
             if(vis_foil):
                 self.visualize_airfoil(n, path=path)
             return s1, -1.0, done
-
-        # If the airfoil is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 2 peaks
-        elif (n_peaks_upper > 2) or (n_peaks_lower > 2):
-            #print("airfoil peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
         
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-
-        # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 1 peak
-        elif n_peaks_thickness >= 2:
-            #print("thickness peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-        
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-        
-        # If the airfoil has a turning angle that is too great (> degrees), return no reward and the new airfoil
-        elif (new_turning_angles < 0.50).any():
+        # If the airfoil has a turning angle that is too great (>81.4 deg), return no reward and the new airfoil
+        elif (new_turning_angles < 0.15).any():
             #print("turning angles")
             # Update the stored airfoil
             self.surface_y = s2
@@ -457,7 +428,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
 
         # If the point of minimum thickness is not the TE, return no reward and the new airfoil
-        elif (minimum_thickness > 0.02):
+        elif (minimum_thickness <= 0.02):
             #print("min thickness not at TE")
             # Update the stored airfoil
             self.surface_y = s2

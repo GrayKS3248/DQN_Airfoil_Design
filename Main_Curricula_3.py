@@ -1,4 +1,4 @@
-import Vortex_Panel_Solver_Sum_of_Forces as vps 
+import Vortex_Panel_Solver_3 as vps 
 import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
@@ -49,7 +49,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
         if ((curr_episode >= n_episodes) and (total_reward > 0.0 and (sum(running_reward)/len(running_reward)) < 0.0)):
             exit_cond = 2
             end_episode = True
-        if ((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes):
+        if (((sum(running_average)/len(running_average)) >= target_avg_reward) and (curr_episode >= n_episodes)):
             exit_cond = 3
             end_episode = True
         
@@ -82,7 +82,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             a1 = agent.get_action(s1)
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, n=n, reward_depreciation=1.5, path="curricula_3/")
+            (s2, r, done) = env.step(a1, n=n, reward_depreciation=2.0, path="curricula_3/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
@@ -163,8 +163,8 @@ if __name__ == '__main__':
     n_panel_per_surface = 10
     target_avg_reward = 1.50
     n_sets = 1
-    n_episodes = 2000
-    max_episodes = 2500
+    n_episodes = 1000
+    max_episodes = 2000
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
@@ -181,10 +181,10 @@ if __name__ == '__main__':
     minibatch_size = 32
     num_hidden_layers = 2
     num_neurons_in_layer = 128
-    clone_interval = 10000
-    alpha = 0.00025
+    clone_interval = 20000
+    alpha = 0.0001
     gamma = 0.99
-    epsilon_start = 0.50
+    epsilon_start = 0.75
     epsilon_end = 0.10
     percent_at_epsilon_complete = 0.75
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
