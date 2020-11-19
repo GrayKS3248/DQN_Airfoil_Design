@@ -1,4 +1,4 @@
-import Vortex_Panel_Solver_1 as vps 
+import Vortex_Panel_Solver as vps 
 import DQN_Agent as dqn
 import time
 import matplotlib.pyplot as plt
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     
     # Environment
     env = vps.Vortex_Panel_Solver(n_steps, n_panel_per_surface, re_test, alpha_test_points, cl_test_points, 
-                                  cdp_test_points, cm4c_test_points)
+                                  cdp_test_points, cm4c_test_points, stage=1)
     num_actions = env.num_actions
     state_dimension = env.state_dimension
     
