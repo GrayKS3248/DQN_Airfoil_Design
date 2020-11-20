@@ -40,6 +40,12 @@ class Vortex_Panel_Solver():
         self.num_j = np.reshape(np.linspace(1,0,self.precision),(self.precision,1))
         self.num_jp1 = np.reshape(np.linspace(0,1,self.precision),(self.precision,1))
         
+        self.A = 0
+        self.A_vx = 0
+        self.A_vy = 0
+        self.panel_length = 0
+        self.control_point_set = 0
+            
         # Create upper surface that is legal
         upper_surface_normal, upper_surface_y = self.make_upper_surface(debug)
         
@@ -64,7 +70,7 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             highest_vertex = np.random.randint(self.n_panels_per_surface - self.n_panels_per_surface // 2, self.n_panels_per_surface)
-            highest_vertex_height = np.random.randint(25,83) / 666.66667 
+            highest_vertex_height = np.random.randint(17,66) / 666.66667 
         else:
             highest_vertex = self.n_panels_per_surface - 1
             highest_vertex_height = 0.01
@@ -99,7 +105,7 @@ class Vortex_Panel_Solver():
         
         if not (symmetric):
             lowest_vertex = np.random.randint(1,self.n_panels_per_surface // 2 + 3)
-            lowest_vertex_height = -1.0 * np.random.randint(25,83) / 666.66667    
+            lowest_vertex_height = -1.0 * np.random.randint(17,66) / 666.66667    
         else:
             lowest_vertex = 1
             lowest_vertex_height = -0.01
@@ -239,31 +245,37 @@ class Vortex_Panel_Solver():
     # Gets the velocity induced by the freestream and the vortex panels at each control point
     # @param V_inf - freestream velocity in form np.array([Vx, Vy])
     # @return coefficient of pressure at each control point
-    def solve_cp(self, v_inf):
+    def solve_cp(self, v_inf, make_new_A_matrix):
         # Get the magnitude of the tangential vel at each control point
-        A, A_vx, A_vy, panel_length, control_point_set = self.get_A()
+        if make_new_A_matrix:
+            A, A_vx, A_vy, panel_length, control_point_set = self.get_A()
+            self.A = A
+            self.A_vx = A_vx
+            self.A_vy = A_vy
+            self.panel_length = panel_length
+            self.control_point_set = control_point_set
         B = self.get_B(v_inf)
-        gamma = np.linalg.solve(A, -B)
-        vx = 2.0*((np.matmul(A_vx, gamma)) + v_inf[0]).reshape(2*self.n_panels_per_surface)
-        vy = 2.0*((np.matmul(A_vy, gamma)) + v_inf[1]).reshape(2*self.n_panels_per_surface)
+        gamma = np.linalg.solve(self.A, -B)
+        vx = 2.0*((np.matmul(self.A_vx, gamma)) + v_inf[0]).reshape(2*self.n_panels_per_surface)
+        vy = 2.0*((np.matmul(self.A_vy, gamma)) + v_inf[1]).reshape(2*self.n_panels_per_surface)
         v_mag_sq = vx**2 + vy**2  
     
         # Flow tangency
-        assert((np.einsum('i...,i...', self.surface_normal, (np.array([vx, vy]) / np.sqrt(vx**2+vy**2))) < 1e-10).all()==True)
+        assert((np.einsum('i...,i...', self.surface_normal, (np.array([vx, vy]) / np.sqrt(vx**2+vy**2))) < 1e-5).all()==True)
         
         # Kutta condition
         assert(gamma[0,0] + gamma[-1,0] < 1e-10)
     
         # Bernoulli's equation to get Cp
         cp = 1.0 - (v_mag_sq/self.v_free**2)
-        return cp, panel_length, control_point_set, gamma
+        return cp, self.panel_length, self.control_point_set, gamma
 
     # Gets the lift, pressure drag, and moment coefficients based on the pressure distribution
     # @param v_inf - freestream velocity in form np.array([Vx, Vy])
     # @return the lift, pressure drag, and moment coefficients coefficient
-    def solve_cl_cdp_cm4c(self, v_inf):
+    def solve_cl_cdp_cm4c(self, v_inf, make_new_A_matrix):
         # Get and split cp into lower and upper
-        cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf)
+        cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf, make_new_A_matrix)
         cp_upper = cp[0:self.n_panels_per_surface][::-1]
         cp_lower = cp[self.n_panels_per_surface:2*self.n_panels_per_surface]
         cp_upper_peaks = np.insert(cp_upper, 0, cp_lower[0])
@@ -382,7 +394,7 @@ class Vortex_Panel_Solver():
         ####################################################### REWARD FUNCTION #######################################################
         # If the action moves any points outside of the acceptable range, return a negative reward and the old airfoil
         # The acceptable range is any y/c between [-0.25, 0.25]
-        if max(s2) > 0.35 or min(s2) < -0.25:
+        if max(s2) > 0.30 or min(s2) < -0.20:
             #print("out of bounds")
             # Visualize airfoil
             if(vis_foil):
@@ -410,7 +422,7 @@ class Vortex_Panel_Solver():
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
         
         # If the airfoil is too thick, return no reward and the new airfoil
-        elif (maximum_thickness > 0.25):
+        elif (maximum_thickness > 0.20):
             #print("too thick")
             # Update the stored airfoil
             self.surface_y = s2
@@ -502,7 +514,7 @@ class Vortex_Panel_Solver():
                 v_inf = self.v_free * np.array([np.cos(self.alpha_test_points[test_point]), np.sin(self.alpha_test_points[test_point])])
                 
                 # Use the vortex panel method to solve for the airfoil's non-dimensional parameters
-                cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
+                cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf, make_new_A_matrix=(test_point==0))
                 if not(cp_state):
                     break
                 
@@ -588,8 +600,8 @@ class Vortex_Panel_Solver():
             
             # Get the distribution and performance parameters
             v_inf = self.v_free * np.array([np.cos(self.alpha_test_points[test_point]), np.sin(self.alpha_test_points[test_point])])
-            cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf)
-            cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
+            cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf, make_new_A_matrix=test_point==0)
+            cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf, False)
             
             # Update the performance book
             performance['alpha'].append(self.alpha_test_points[test_point])
@@ -664,7 +676,7 @@ class Vortex_Panel_Solver():
             plt.xlabel("x/c [unitless]")
             plt.ylabel("y/c [unitless]")
             plt.xlim([0,1])
-            plt.ylim([-0.5,0.5])
+            plt.ylim([-0.20,0.30])
             fig = plt.gcf()
             fig.set_size_inches(10, 5)
             save_str = path + "airfoils/airfoil_" + str(n_seq[curr_airfoil]) + ".png"
@@ -680,7 +692,7 @@ class Vortex_Panel_Solver():
         plt.xlabel("x/c [unitless]")
         plt.ylabel("y/c [unitless]")
         plt.xlim([0,1])
-        plt.ylim([-0.5,0.5])
+        plt.ylim([-0.20,0.30])
         fig = plt.gcf()
         fig.set_size_inches(10, 5)
         save_str = "debug/airfoil.png"
@@ -691,8 +703,8 @@ class Vortex_Panel_Solver():
         cla = []
         for test_point in range(len(self.alpha_test_points)):
             v_inf = self.v_free * np.array([np.cos(self.alpha_test_points[test_point]), np.sin(self.alpha_test_points[test_point])])
-            cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf)
-            cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf)
+            cl, cdp, cm4c, cp_state = self.solve_cl_cdp_cm4c(v_inf, make_new_A_matrix=(test_point==0))
+            cp, panel_length, control_point_set, gamma = self.solve_cp(v_inf, False)
             x_coords = ((self.surface_x + np.roll(self.surface_x,-1)) / 2)[:-1].reshape(2*self.n_panels_per_surface)
             plt.clf()
             if cp_state:

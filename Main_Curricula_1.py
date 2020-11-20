@@ -161,9 +161,9 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 1.50
+    target_avg_reward = 0.30
     n_sets = 1
-    n_episodes = 2000
+    n_episodes = 1000
     max_episodes = 2500
     n_steps = 25 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 2
-    num_neurons_in_layer = 128
+    num_neurons_in_layer = 64
     clone_interval = 20000
     alpha = 0.0001
     gamma = 0.99

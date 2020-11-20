@@ -1,0 +1,6 @@
+Training DQN agent 1 of 1...
+100.00% Complete     | Foil: 2500/1000 | Tot R: 232071  | R/step: 0.42/1.50   | Foil R: 268.56   | R/foil: 246.32    | Best foil: 897  | Epsilon: 1.00  |
+EXIT: Maximum number of episodes reached.
+Simulation took: 34338.268 seconds.
+Plotting training and trajectory data...
+Plotting took: 13.414 seconds.

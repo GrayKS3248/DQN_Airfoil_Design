@@ -180,7 +180,7 @@ if __name__ == '__main__':
     sequence_size = 1
     minibatch_size = 32
     num_hidden_layers = 2
-    num_neurons_in_layer = 128
+    num_neurons_in_layer = 64
     clone_interval = 20000
     alpha = 0.0001
     gamma = 0.99
