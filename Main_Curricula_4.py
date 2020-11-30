@@ -82,7 +82,7 @@ def run_set(curr_set, n_sets, n_episodes, n_draw, env, agent, target_avg_reward=
             a1 = agent.get_action(s1)
             
             # Execute action a1 in emulator and observer reward r and next state s2
-            (s2, r, done) = env.step(a1, n=n, reward_depreciation=2.0, path="curricula_4/")
+            (s2, r, done) = env.step(a1, n=n, reward_depreciation=1.0, path="curricula_4/")
             total_reward += r
             
             # Update state sequence buffer, store experience in data_set
@@ -161,11 +161,11 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 1.50
+    target_avg_reward = 0.75
     n_sets = 1
-    n_episodes = 1500
-    max_episodes = 2000
-    n_steps = 25 * (2*n_panel_per_surface + 1)
+    n_episodes = 2500
+    max_episodes = 5000
+    n_steps = 15 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
@@ -184,9 +184,9 @@ if __name__ == '__main__':
     clone_interval = 20000
     alpha = 0.0001
     gamma = 0.99
-    epsilon_start = 1.00
+    epsilon_start = 0.75
     epsilon_end = 0.10
-    percent_at_epsilon_complete = 0.75
+    percent_at_epsilon_complete = 1.0
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
     
     # Create agent

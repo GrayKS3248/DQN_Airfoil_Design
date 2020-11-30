@@ -1,5 +1,5 @@
-5: ok_cp_distribution, ok_suction_peak, ok_cp_shape, ok_recovery, peaks, thickpeaks, turning
-4: ok_cp_distribution, ok_suction_peak, ok_cp_shape, peaks, thickpeaks, turning
-3: ok_cp_distribution, ok_suction_peak, ok_cp_shape, peaks, turning
-2: ok_cp_distribution, ok_suction_peak, ok_cp_shape, turning
+5: ok_recovery
+4: peaks
+3: turning
+2: ok_cp_shape, thickpeaks
 1: ok_cp_distribution, ok_suction_peak

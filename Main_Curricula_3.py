@@ -161,11 +161,11 @@ if __name__ == '__main__':
 
     # Simulation parameters
     n_panel_per_surface = 10
-    target_avg_reward = 1.50
+    target_avg_reward = 0.30
     n_sets = 1
-    n_episodes = 1000
-    max_episodes = 2000
-    n_steps = 25 * (2*n_panel_per_surface + 1)
+    n_episodes = 1500
+    max_episodes = 3000
+    n_steps = 15 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment

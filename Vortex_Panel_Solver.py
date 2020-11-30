@@ -286,20 +286,14 @@ class Vortex_Panel_Solver():
         
         # Make sure that the suction peak is on the first quarter of the airfoil
         ok_suction_peak = control_point_set[0,:][self.n_panels_per_surface+np.argmin(cp_upper)] <= 0.25
-        
-        # Make sure that there is sufficient pressure recovery at the TE
-        if self.stage >= 5:
-            ok_recovery = cp_lower[-1] >= 0.75
-        else:
-            ok_recovery = True
-        
+  
         # Make sure that the pressure distribution on both surfaces no more than 2 peaks
         if self.stage >= 2:
             n_peaks_upper = len(find_peaks(-1.0*cp_upper_peaks)[0])
             n_peaks_lower = len(find_peaks(-1.0*cp_lower_peaks)[0])
             ok_cp_shape = (n_peaks_upper <= 2 and n_peaks_lower <= 2)
         else:
-            ok_cp_shape = True
+            ok_cp_shape = True      
         
         # Calculate normal and axial force coefficients
         TE_correction = (-self.p_inf*panel_length*self.surface_normal).sum(axis=1)
@@ -313,14 +307,17 @@ class Vortex_Panel_Solver():
         assert(TE_correction[1] <= 1e-10)
         
         # Calculate moment about quarter chord
-        torque = np.cross(np.transpose(control_point_set - np.array([[0.25],[0.0]])), np.transpose(f_dist)).sum()
+        torque = -1.0*np.cross(np.transpose(control_point_set - np.array([[0.25],[0.0]])), np.transpose(f_dist)).sum()
         cm4c = torque / self.q_inf
         
         # Calculate lift and pressure drag coefficients
         cdp = coeff[0]
         cl = coeff[1]
         
-        return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape and ok_recovery)
+        if self.stage >= 4:
+            return cl, cdp, cm4c, True
+        else:
+            return cl, cdp, cm4c, (ok_cp_distribution and ok_suction_peak and ok_cp_shape)
 
     # converts discrete action, a, into an airfoil transforming action
     # @param a - the action index to be converted. Given n_panels_per_surface, the action space is 4 * n_panels_per_surface - 4
@@ -457,8 +454,21 @@ class Vortex_Panel_Solver():
                 self.visualize_airfoil(n, path=path)
             return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
 
-        # If the airfoil has a turning angle that is too great (>81.4 deg), return no reward and the new airfoil
-        elif self.stage >= 2 and (new_turning_angles < 0.15).any():
+        # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
+        # Too spikey is defined as having more than a 2 peaks
+        elif self.stage >= 2 and n_peaks_thickness > 1:
+            #print("thickness peaks")
+            # Update the stored airfoil
+            self.surface_y = s2
+            self.surface_normal = surface_normal_new
+        
+            # Visualize airfoil
+            if(vis_foil):
+                self.visualize_airfoil(n, path=path)
+            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
+
+        # If the airfoil has a turning angle that is too great, return no reward and the new airfoil
+        elif self.stage >= 3 and (new_turning_angles < 0.50).any():
             #print("turning angles")
             # Update the stored airfoil
             self.surface_y = s2
@@ -471,21 +481,8 @@ class Vortex_Panel_Solver():
 
         # If the airfoil is too spikey, return no reward and the new airfoil
         # Too spikey is defined as having more than a 2 peaks
-        elif self.stage >= 3 and ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
+        elif self.stage >= 4 and ((n_peaks_upper > 2) or (n_peaks_lower > 2)):
             #print("airfoil peaks")
-            # Update the stored airfoil
-            self.surface_y = s2
-            self.surface_normal = surface_normal_new
-        
-            # Visualize airfoil
-            if(vis_foil):
-                self.visualize_airfoil(n, path=path)
-            return s2.reshape(2 * self.n_panels_per_surface + 1), 0.0, done
-
-        # If the airfoil thickness distribution is too spikey, return no reward and the new airfoil
-        # Too spikey is defined as having more than a 1 peak
-        elif self.stage >= 4 and n_peaks_thickness >= 2:
-            #print("thickness peaks")
             # Update the stored airfoil
             self.surface_y = s2
             self.surface_normal = surface_normal_new
@@ -537,14 +534,17 @@ class Vortex_Panel_Solver():
                 cl_loss = cl_loss / n_test_points
                 cdp_loss = cdp_loss / n_test_points
                 cm4c_loss = cm4c_loss / n_test_points
-                cl_loss_weight = 3.0
+                cl_loss_weight = 2.0
                 cdp_loss_weight = 1.0
                 cm4c_loss_weight = 1.0
                 total_loss = (cl_loss_weight*cl_loss + cdp_loss_weight*cdp_loss + cm4c_loss_weight*cm4c_loss)/(cl_loss_weight + cdp_loss_weight + cm4c_loss_weight)
                 total_loss = np.clip(total_loss, 0.0,reward_depreciation)
             
                 # Use the loss to get a reward between 0.5 and 5.0
-                reward = np.clip((5.0 * (reward_depreciation - total_loss)),0.5,5.0)
+                if self.stage >= 5:
+                    reward = np.clip((reward_depreciation - total_loss)**2, 0.1, 2.0)
+                else:
+                    reward = np.clip((5.0 * (reward_depreciation - total_loss)),0.5,5.0)
             
             # Visualize airfoil
             if(vis_foil):

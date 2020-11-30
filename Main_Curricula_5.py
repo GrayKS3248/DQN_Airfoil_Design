@@ -163,9 +163,9 @@ if __name__ == '__main__':
     n_panel_per_surface = 10
     target_avg_reward = 1.50
     n_sets = 1
-    n_episodes = 1000
-    max_episodes = 2000
-    n_steps = 25 * (2*n_panel_per_surface + 1)
+    n_episodes = 2000
+    max_episodes = 3500
+    n_steps = 15 * (2*n_panel_per_surface + 1)
     n_draw = n_steps // 19
     
     # Environment
@@ -184,9 +184,9 @@ if __name__ == '__main__':
     clone_interval = 20000
     alpha = 0.0001
     gamma = 0.99
-    epsilon_start = 0.0
-    epsilon_end = 0.0
-    percent_at_epsilon_complete = 0.75
+    epsilon_start = 0.75
+    epsilon_end = 0.10
+    percent_at_epsilon_complete = 1.00
     epsilon_depreciation_factor = (epsilon_start - epsilon_end) / (percent_at_epsilon_complete * n_episodes * n_steps)
     
     # Create agent
